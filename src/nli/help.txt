@@ -1,0 +1,24 @@
+src/nli:  core reasoning engine
+
+A) nli_model.py: provide a clean, high-level interface (a "wrapper") for the underlying NLI model.
+                 This abstracts away the complexities of working with models from libraries like 
+                 Hugging Face Transformers. It includes:
+
+                 +) loads pretrained model:  pre-trained NLI model (e.g., roberta-base-mnli) and its 
+                                             associated tokenizer from a local path or the web.
+
+                 +) prediction logic: tokenize premise - hypo, forward pass to model, convert to 
+                                      probabilities, then to labels: SUPPORT, REFUTE, NEUTRAL
+
+B) batch_inference.py: Calling the NLI model in a loop for each of your 10-12 evidence sentences is 
+                       very slow.  This module is responsible for batching them together and 
+                       processing  them all in a single pass
+                    +) It has:
+
+                        predict_batch(claim: str, evidence_sentences: list).
+
+                        --> returns: a list of dictionaries, where each dictionary contains the evidence 
+                                     sentence, its predicted label, and its confidence score.
+
+C) onnx_model/: Something related to GPU/CPU optimization. A little confusing, 
+                temporarily left untouched.

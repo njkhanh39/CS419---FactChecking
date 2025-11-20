@@ -1,0 +1,17 @@
+What is the pipeline flow?
+
+1) Initialization: create a FactChecker object
+
+2) Document Retrieval: calls src/retrieval --> find relevant documents from the entire corpus.
+
+3) Sentence Ranking: calls src/sentence_ranker --> extracts all sentences from these documents,
+                                                   obtain the bests.
+4) Natural Language Inference: calls src/nli --> uses the highly efficient batch inference module, 
+                                                obtain res, 
+
+                                                +) eg: [{sentence: "...", label: "SUPPORT", score: 0.92}, ...] 
+
+5) Evidence Aggregation: calls src/aggregation --> obtains scorings from result of previous steps,
+                                                    provides ULTIMATE VERDICT.
+                                                    
+                                                +) eg:  {verdict: "REFUTED", final_score: -0.75, evidence: [...]}                      

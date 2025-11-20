@@ -1,0 +1,19 @@
+src/sentence_ranker:  important sentences filtering stage
+
+A) split_sentences.py: breaks down raw document text into its constituent sentences.
+
+B)  rank_sentences.py: implements the algorithms that score and rank sentences based on their 
+                       relevance to the user's claim.
+                        ==> score = 0.6 * semantic_score + 0.4 * lexical_score  
+
+
+C) filters.py: heuristic-based filtering to improve the quality of the candidate sentences
+e.g: 
+    + has_named_entity_overlap(claim, sentence): Checks if the key entities (like "Vietnam," "coffee") from the claim 
+    are actually present in the sentence. Sentences that lack these are likely irrelevant.
+
+    + is_relevant_by_date(claim_date, sentence): If the claim is time-sensitive, this can filter out sentences 
+    that refer to a different time period.
+
+    + contains_negation_cues(sentence): A function that looks for keywords like "no evidence," 
+    "unlikely," or "lacks," which can be useful signals.

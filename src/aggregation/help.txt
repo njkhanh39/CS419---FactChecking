@@ -1,0 +1,15 @@
+src\aggregation: judging and decision-making
+
+
+# NOTE) : A) + C) or B), Use either combination to obtain scoring (one as numerical --> verdict, 
+                                                            the other gives verdict in first place (voting.py))
+
+A) scoring.py: translate the categorical NLI labels (SUPPORT, REFUTE, NEUTRAL) 
+                and their confidence scores into a standardized 
+                numerical format that can be mathematically combined.
+
+B) voting.py: provide a simpler, alternative method of aggregation based on a majority vote, 
+                which can be more intuitive and robust in certain situations.
+
+C) final_decision.py: takes the combined numerical scores (from scoring.py) and applies a 
+                      decision rule to produce the ultimate verdict for the user's claim.

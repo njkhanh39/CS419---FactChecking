@@ -1,0 +1,45 @@
+├── README.md
+├── requirements.txt
+├── .gitignore
+│
+├── data/
+│   ├── raw/                # Raw datasets (UN, WB, OWID, etc.)
+│   ├── processed/          # Cleaned/normalized corpus
+│   ├── index/              # BM25 or vector index files
+│   └── samples/            # Example input/output for demonstration
+│
+├── src/
+│   ├── retrieval/          # IR pipeline
+│   │   ├── bm25_retriever.py #  implements lexical search
+│   │   ├── embed_retriever.py  # implements semantic search
+│   │   └── build_index.py # utility script for offline processing
+│   │
+│   ├── sentence_ranker/
+│   │   ├── split_sentences.py
+│   │   ├── rank_sentences.py
+│   │   └── filters.py
+│   │
+│   ├── nli/
+│   │   ├── nli_model.py       # Wrapper around RoBERTa-base-MNLI
+│   │   ├── batch_inference.py
+│   │   [[└── onnx_model/        # ONNX-optimized version]] --> not yet
+│   │
+│   ├── aggregation/
+│   │   ├── voting.py
+│   │   ├── scoring.py
+│   │   └── final_decision.py
+│   │
+│   ├── pipeline/
+│   │   └── fact_check.py      # End-to-end pipeline:
+│   │                          # claim → docs → sentences → NLI → verdict
+│   │
+│   └── utils/
+│       ├── preprocessing.py
+│       ├── evaluation.py
+│       └── helpers.py
+│
+├── notebooks/
+│   ├── exploratory_data.ipynb      # Inspect dataset
+│   ├── retrieval_testing.ipynb     # Try BM25 + embedding ranking
+│   ├── nli_evaluation.ipynb        # Test NLI accuracy on claims
+│   [[└── pipeline_demo.ipynb         # Demo for report]] --> not yet

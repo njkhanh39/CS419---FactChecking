@@ -1,0 +1,19 @@
+src/retrieval: finding relevant evidence documents.
+
+A) build_index.py: 
+    1) Load Data: Read the cleaned documents from the data/processed/ directory.
+    2) Create Index(es):
+
+        + For BM25, this involves tokenizing the documents and building an inverted index structure that maps words 
+        to the documents they appear in. The rank-bm25 library is commonly used for this.
+
+        + For Embedding Retrieval, this involves using a sentence-transformer model (e.g., SBERT) to convert every
+        document into a numerical vector (an embedding). These vectors are then stored in a specialized, highly efficient 
+        data structure like FAISS (Facebook AI Similarity Search) or Annoy for rapid nearest-neighbor search.
+
+    3) Save Index(es): The script saves the generated index file(s) to the data/index/ directory. This is a crucial 
+    step because building an index can be time-consuming, and you only want to do it once 
+    (or whenever your source data changes).
+
+B) bm25_retriever.py: gets keyword-relevant docs & their cosine sim scores
+C) embed_retriever.py: gets a list of semantically-relevant documents & their cosine sim scores
