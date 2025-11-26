@@ -3,40 +3,51 @@
 ├── .gitignore
 │
 ├── data/
-│   ├── raw/                # Raw datasets (UN, WB, OWID, etc.)
+│   ├── raw/                # Raw scraped data (JSON corpus files)
 │   ├── processed/          # Cleaned/normalized corpus
 │   ├── index/              # BM25 or vector index files
 │   └── samples/            # Example input/output for demonstration
 │
 ├── src/
-│   ├── retrieval/          # IR pipeline
-│   │   ├── bm25_retriever.py #  implements lexical search
-│   │   ├── embed_retriever.py  # implements semantic search
-│   │   └── build_index.py # utility script for offline processing
+│   ├── data_collection/    # Phase 0: Web data gathering [NEW]
+│   │   ├── web_search.py      # Query generation & search APIs (SerpApi, Bing)
+│   │   ├── web_scraper.py     # Web scraping (trafilatura, newspaper3k)
+│   │   ├── collector.py       # Complete pipeline orchestrator
+│   │   └── __init__.py
 │   │
-│   ├── sentence_ranker/
-│   │   ├── split_sentences.py
-│   │   ├── rank_sentences.py
-│   │   └── filters.py
+│   ├── retrieval/          # Phase 1-2: IR pipeline (Funnel Stage 1)
+│   │   ├── bm25_retriever.py     # Implements lexical search (BM25)
+│   │   ├── embed_retriever.py    # Implements semantic search
+│   │   └── build_index.py        # Utility script for offline indexing
 │   │
-│   ├── nli/
-│   │   ├── nli_model.py       # Wrapper around RoBERTa-base-MNLI
-│   │   ├── batch_inference.py
-│   │   [[└── onnx_model/        # ONNX-optimized version]] --> not yet
+│   ├── sentence_ranker/    # Phase 3: Sentence ranking (Funnel Stage 2)
+│   │   ├── split_sentences.py    # Break documents into sentences
+│   │   ├── rank_sentences.py     # Score & rank: semantic + BM25 + metadata
+│   │   └── filters.py            # Entity/keyword/metadata filters
 │   │
-│   ├── aggregation/
-│   │   ├── voting.py
-│   │   ├── scoring.py
-│   │   └── final_decision.py
+│   ├── nli/                # Phase 4: Natural Language Inference
+│   │   ├── nli_model.py          # Wrapper around RoBERTa-base-MNLI
+│   │   ├── batch_inference.py    # Batch processing for efficiency
+│   │   [[└── onnx_model/           # ONNX-optimized version]] --> not yet
 │   │
-│   ├── pipeline/
-│   │   └── fact_check.py      # End-to-end pipeline:
-│   │                          # claim → docs → sentences → NLI → verdict
+│   ├── aggregation/        # Phase 5: Scoring & aggregation
+│   │   ├── voting.py             # Majority voting aggregation
+│   │   ├── scoring.py            # Numerical scoring from NLI outputs
+│   │   └── final_decision.py     # Final verdict with confidence
+│   │
+│   ├── pipeline/           # End-to-end orchestration
+│   │   └── fact_check.py         # Complete pipeline:
+│   │                             # claim → search → scrape → retrieve → 
+│   │                             # rank → NLI → verdict
+│   │
+│   ├── config/
+│   │   └── paths.py              # Project paths configuration
 │   │
 │   └── utils/
-│       ├── preprocessing.py
-│       ├── evaluation.py
-│       └── helpers.py
+│       ├── preprocessing.py      # Text preprocessing utilities
+│       ├── evaluation.py         # Evaluation metrics
+│       ├── metadata.py           # Metadata extraction & scoring [NEW]
+│       └── helpers.py            # General helper functions
 │
 ├── notebooks/
 │   ├── exploratory_data.ipynb      # Inspect dataset
