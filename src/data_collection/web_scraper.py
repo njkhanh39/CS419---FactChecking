@@ -94,12 +94,20 @@ class WebScraper:
             if not article.text:
                 return None
             
+            # Handle publish_date - it can be datetime or string
+            date_str = ""
+            if article.publish_date:
+                if isinstance(article.publish_date, datetime):
+                    date_str = article.publish_date.isoformat()
+                else:
+                    date_str = str(article.publish_date)
+            
             return {
                 "url": url,
                 "text": article.text,
                 "title": article.title or "",
                 "author": ", ".join(article.authors) if article.authors else "",
-                "date": article.publish_date.isoformat() if article.publish_date else "",
+                "date": date_str,
                 "description": article.meta_description or "",
                 "sitename": urlparse(url).netloc,
                 "extraction_method": "newspaper3k",
