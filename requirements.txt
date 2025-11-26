@@ -1,8 +1,9 @@
-# ---- VER 1 ----
+# ---- VER 2 ----
 
 # --- Core Data Handling ---
 numpy
 pandas
+python-dateutil
 
 # --- Information Retrieval & Search ---
 rank-bm25
@@ -14,8 +15,23 @@ sentence-transformers
 transformers
 torch
 
-# --- Data Collection (For your scraper script) ---
+# --- ONNX Runtime (for optimized inference) ---
+onnxruntime
+# Note: Use onnxruntime-gpu for GPU acceleration
+
+# --- Data Collection & Web Scraping ---
 requests
 beautifulsoup4
+trafilatura
+newspaper3k
+lxml
+
+# --- Web Search APIs ---
+google-search-results  # SerpApi for Google Search
+# Note: Also supports Bing Search API (requires separate key)
+
+# --- Utilities ---
+pathlib
+tqdm  # Progress bars
 
 # -------------- 

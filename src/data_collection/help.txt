@@ -1,0 +1,71 @@
+src/data_collection: Phase 0 - Raw data gathering from the web
+
+This module implements the first phase of the fact-checking pipeline:
+collecting raw evidence from web sources based on a user's claim.
+
+A) web_search.py:
+   - Query Generation: Transforms user claim into search queries
+   - Web Search API Integration: 
+     * SerpApi (Google Search): Use for Google search results
+     * Bing Search API: Alternative search engine
+   - Returns: Top 20 URLs with metadata (title, snippet, date, source)
+   
+   Example:
+   Claim: "Vietnam is the world's largest coffee exporter"
+   → Query: "Vietnam coffee exporter statistics"
+   → Returns: [
+       {url: "...", title: "...", snippet: "...", date: "...", source: "..."},
+       ...
+     ]
+
+B) web_scraper.py:
+   - Web Scraping: Downloads HTML and extracts clean text
+   - Primary Method: trafilatura (fast, accurate)
+   - Fallback Method: newspaper3k (robust)
+   - Metadata Extraction: title, author, date, description, domain
+   - Rate Limiting: Respects server resources with delays
+   
+   For each URL:
+   1) Download HTML content
+   2) Extract article text (remove ads, navigation, etc.)
+   3) Extract metadata (title, date, author)
+   4) Return structured document
+
+C) collector.py:
+   - Orchestrator: Combines search + scraping into single pipeline
+   - Corpus Creation: Builds collection of 20 documents
+   - Data Persistence: Saves corpus to data/raw/ as JSON
+   - Summary Statistics: Provides overview of collected data
+   
+   Complete Pipeline:
+   User Claim → Search (20 URLs) → Scrape (20 docs) → Save Corpus
+   
+   Output Format:
+   {
+     "claim": "...",
+     "search_results": [...],
+     "corpus": [
+       {
+         "url": "...",
+         "text": "...",
+         "title": "...",
+         "date": "...",
+         "domain": "...",
+         ...
+       },
+       ...
+     ],
+     "metadata": {...}
+   }
+
+Usage Flow:
+-----------
+1. Initialize: collector = DataCollector(search_api="serpapi", api_key="...")
+2. Collect: corpus = collector.collect_corpus(claim, num_urls=20)
+3. Result: 20 documents ready for indexing and retrieval
+
+Next Steps:
+-----------
+After data collection, the corpus moves to:
+- src/retrieval/build_index.py: Index documents for fast retrieval
+- src/sentence_ranker/: Extract and rank relevant sentences

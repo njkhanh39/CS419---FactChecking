@@ -26,11 +26,25 @@ wheels/
 .ipynb_checkpoints
 
 # Data files
-data/raw/
-data/processed/
+data/raw/**
+data/processed/**
+data/index/**
+!data/samples/
+*.json
+*.csv
+*.txt.gz
+
+# Model files
+*.onnx
+*.pt
+*.bin
 
 # Environment variables 
 .env
 env/
 myenv/
 venv/
+
+# API keys (security)
+**/api_keys.py
+secrets.yaml

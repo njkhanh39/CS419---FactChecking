@@ -43,15 +43,18 @@ def build_indices():
     model = SentenceTransformer('all-MiniLM-L6-v2')
     
     # Encode all documents (this takes time depending on data size)
-    embeddings = model.encode(documents, show_progress_bar=True)
+    embeddings = model.encode(documents, show_progress_bar=True, convert_to_numpy=True)
+    
+    # Ensure numpy array with float32 (required by FAISS)
+    embeddings_array: np.ndarray = np.ascontiguousarray(embeddings, dtype=np.float32)
     
     # Normalize embeddings for Cosine Similarity (FAISS uses Dot Product by default)
-    faiss.normalize_L2(embeddings)
+    faiss.normalize_L2(embeddings_array)
     
     # Create FAISS index
-    dimension = embeddings.shape[1]
+    dimension: int = embeddings_array.shape[1]
     index = faiss.IndexFlatIP(dimension) # IP = Inner Product (Cosine sim if normalized)
-    index.add(embeddings)
+    index.add(embeddings_array)  # type: ignore[call-arg]
     
     # Save FAISS index
     faiss.write_index(index, os.path.join(DATA_INDEX_DIR, 'faiss_index.bin'))
