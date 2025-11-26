@@ -234,4 +234,9 @@ This is a student project for CS419 - Information Retrieval course.
 
 ## 👥 Team
 
-[Add team member names here]
+Our team has 4 members:
+1. Le Tien Dat, Student ID: 23125028
+2. Nguyen Gia Khanh, Student ID: 23125007
+3. Nguyen Thu Uyen, Student ID: 23125048
+4. Cao Thanh Hieu, Student ID: 23125034
+
