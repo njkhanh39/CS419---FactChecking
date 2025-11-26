@@ -1,37 +1,21 @@
-# # For notebooks
-# jupyter
-# matplotlib
-# seaborn
+# ---- VER 1 ----
 
-# # Core ML + NLP
-# transformers==4.40.0
-# torch>=2.0.0
-# sentence-transformers==2.4.0
+# --- Core Data Handling ---
+numpy
+pandas
 
-# # Tokenizers
-# tokenizers>=0.15.0
+# --- Information Retrieval & Search ---
+rank-bm25
+faiss-cpu
+# Note: Use faiss-gpu instead if you have a compatible NVIDIA GPU
 
-# # Retrieval (BM25 + index building)
-# rank-bm25==0.2.2
-# faiss-cpu==1.7.4
+# --- NLP & Deep Learning Models ---
+sentence-transformers
+transformers
+torch
 
-# # Preprocessing
-# nltk==3.8.1
-# spacy==3.7.2
+# --- Data Collection (For your scraper script) ---
+requests
+beautifulsoup4
 
-# # Data utilities
-# pandas>=2.0.0
-# numpy>=1.24.0
-
-# -----------------------------------
-# # ONNX Runtime (optional but recommended)
-# onnx==1.15.0
-# onnxruntime==1.18.0
-#-------------------------------------
-
-# # Evaluation & Logging
-# scikit-learn>=1.2.0
-# tqdm>=4.65.0
-
-# # Misc
-# python-dotenv>=1.0.0
+# -------------- 
