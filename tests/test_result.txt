@@ -1,0 +1,576 @@
+================================================================================
+COMPLETE OPTIMIZED PIPELINE DEMO
+================================================================================
+
+Testing: Phase 0 (Data Collection) + Phase 1 (Indexing) + Phase 2 (Retrieval)
+With ALL optimizations enabled:
+  ⚡ Concurrent scraping (10 workers)
+  ⚡ Batch encoding (batch_size=32)
+  ⚡ Strict timeouts (3s fail-fast)
+  ⚡ Text-only headers
+
+✓ API key configured
+
+Testing 5 claims:
+
+  1. Vietnam is the world's second largest coffee exporter
+  2. The Eiffel Tower is 330 meters tall
+  3. Python was created by Guido van Rossum in 1991
+  4. The Great Wall of China is visible from space
+  5. Water boils at 100 degrees Celsius at sea level
+
+================================================================================
+INITIALIZATION (one-time setup after query entered)
+================================================================================
+
+Initializing pipeline components...
+WARNING:tensorflow:From C:\Users\ltdsp\AppData\Local\Programs\Python\Python312\Lib\site-packages\tf_keras\src\losses.py:2976: The name tf.losses.sparse_softmax_cross_entropy is deprecated. Please use tf.compat.v1.losses.sparse_softmax_cross_entropy instead.
+
+   Loading sentence embedding model...
+   💻 Using CPU
+   💻 Using CPU
+   ⚠️  Adjusted batch_size: 32 → 16 (optimized for CPU)
+   Loading model: all-MiniLM-L6-v2...
+   ✓ Model loaded and ready!
+
+✓ Initialization complete in 22.67 seconds
+   (This time is NOT included in phase measurements)
+
+Cleaning up 5 old corpus files...
+================================================================================
+CLAIM 1/5: Vietnam is the world's second largest coffee exporter
+================================================================================
+
+[Phase 0] Data Collection...
+
+============================================================
+DATA COLLECTION PIPELINE
+============================================================
+Claim: Vietnam is the world's second largest coffee exporter
+Target URLs: 10
+
+[1/3] Searching the web...
+      Found 8 URLs
+
+[2/3] Scraping 8 URLs...
+      ⚠️  Filtered out 1 URLs from blocked domains
+⚡ Concurrent scraping: 7 URLs with 10 workers
+  ✓ [1/7] https://www.nationthailand.com/news/world/40056338... (1051 chars)
+  ✓ [2/7] https://www.reddit.com/r/Coffee/comments/5db3or/vi... (355 chars)
+  ✓ [3/7] https://www.vietnam-briefing.com/news/vietnam-coff... (16401 chars)
+  ✓ [4/7] https://www.tradeimex.in/blogs/top-10-coffee-produ... (11094 chars)
+  ✓ [5/7] https://www.vietnamexportdata.com/blogs/vietnam-co... (14543 chars)
+  ✓ [6/7] https://seatrade.vn/2025/08/18/2-how-vietnam-becam... (3008 chars)
+  ✓ [7/7] https://www.fas.usda.gov/data/production/commodity... (349 chars)
+
+✓ Successfully scraped 7/7 URLs
+      Successfully scraped 7 documents
+
+[3/3] Preparing corpus...
+      ✓ Saved to: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\raw\corpus_Vietnam_is_the_world_s_second_largest_coffee_expor_20251128_043535.json
+
+============================================================
+COLLECTION COMPLETE
+============================================================
+
+✓ Phase 0: 3.51s (7 docs, 7,437 words)
+[Phase 1] Indexing...
+Loading corpus from: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\raw\corpus_Vietnam_is_the_world_s_second_largest_coffee_expor_20251128_043535.json
+Extracted 320 sentences from 7 documents
+
+Filtering 320 sentences...
+   Filtered: 320 → 310 sentences
+   Removed: 10 low-quality/duplicate sentences
+
+🚀 FUNNEL ARCHITECTURE: BM25 filter → Encode top 50 → FAISS
+   Total sentences: 310
+   Claim: Vietnam is the world's second largest coffee exporter
+
+[1/4] Saving sentence store (ALL sentences)...
+   Saved 310 sentences to sentence_store.pkl (0.00s)
+
+[2/4] Building BM25 Index on ALL 310 sentences (cheap filter)...
+   ✓ BM25 index built and saved (0.01s)
+
+[3/4] Querying BM25 to get Top 50 candidates...
+   ✓ Retrieved top 50 candidates (0.00s)
+   Score range: 15.37 → 4.74
+   ✓ Saved top 50 candidates to top50_candidates.pkl
+
+[4/4] Encoding ONLY Top 50 candidates (expensive operation)...
+   ⚡ Model pre-loaded, encoding only (no initialization overhead)
+   📊 Encoding 50 sentences instead of 310 (6.2x reduction!)
+Batches:   0%|                                                | 0/4 [00:00<?, ?it/s]Batches:  25%|##########                              | 1/4 [00:00<00:00,  6.09it/s]Batches:  75%|##############################          | 3/4 [00:00<00:00,  9.87it/s]Batches: 100%|########################################| 4/4 [00:00<00:00, 11.68it/s]
+   ✓ Encoding completed in 0.34s (145.1 sentences/sec)
+   💾 Memory saved: 260 embeddings not created!
+   Saved FAISS index to faiss_index.bin (0.00s)
+
+======================================================================
+✓ FUNNEL ARCHITECTURE COMPLETED SUCCESSFULLY!
+======================================================================
+  Location: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\index
+  BM25 index: 310 sentences (cheap filter)
+  FAISS index: 50 embeddings (expensive operation)
+  Efficiency gain: 6.2x less encoding work!
+  Time breakdown:
+    - BM25 build: 0.01s
+    - BM25 query: 0.00s
+    - Encoding 50 sentences: 0.34s
+    - Total: 0.35s
+  Estimated time saved vs encoding all: 1.79s
+✓ Phase 1: 0.67s (BM25 + encoding top 50)
+   Reinitializing Retrieval Orchestrator to load new indexes...
+Initializing Retrieval Orchestrator...
+  Index directory: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\index
+  ✓ BM25 retriever loaded
+  ✓ Embedding retriever loaded
+  ✓ Metadata handler initialized
+  Weights: Semantic=0.5, Lexical=0.3, Metadata=0.2
+
+[Phase 2] Retrieval...
+✓ Phase 2: 0.36s
+
+✓ Total processing: 4.54s
+
+Top 3 Evidence:
+  1. [0.899] Vietnam is the 2nd largest coffee exporter in the world, as per the global trade data....
+  2. [0.865] Vietnam is the second biggest coffee exporter, but where is it all going?...
+  3. [0.825] Vietnam (16%)
+Vietnam is the second-largest coffee producer in the world, as per Vietnam customs exp...
+
+================================================================================
+CLAIM 2/5: The Eiffel Tower is 330 meters tall
+================================================================================
+
+[Phase 0] Data Collection...
+
+============================================================
+DATA COLLECTION PIPELINE
+============================================================
+Claim: The Eiffel Tower is 330 meters tall
+Target URLs: 10
+
+[1/3] Searching the web...
+      Found 9 URLs
+
+[2/3] Scraping 9 URLs...
+⚡ Concurrent scraping: 9 URLs with 10 workers
+Trafilatura failed for https://parisjetaime.com/eng/article/explore-the-eiffel-tower-a1068: 403 Client Error: Forbidden for url: https://parisjetaime.com/eng/article/explore-the-eiffel-tower-a1068
+Newspaper3k failed for https://parisjetaime.com/eng/article/explore-the-eiffel-tower-a1068: Article `download()` failed with 403 Client Error: Forbidden for url: https://parisjetaime.com/eng/article/explore-the-eiffel-tower-a1068 on URL https://parisjetaime.com/eng/article/explore-the-eiffel-tower-a1068
+Trafilatura failed for https://parisjetaime.com/eng/article/explore-the-eiffel-tower-a1068: 403 Client Error: Forbidden for url: https://parisjetaime.com/eng/article/explore-the-eiffel-tower-a1068
+Newspaper3k failed for https://parisjetaime.com/eng/article/explore-the-eiffel-tower-a1068: Article `download()` failed with 403 Client Error: Forbidden for url: https://parisjetaime.com/eng/article/explore-the-eiffel-tower-a1068 on URL https://parisjetaime.com/eng/article/explore-the-eiffel-tower-a1068
+  ✗ [1/9] https://parisjetaime.com/eng/article/explore-the-e... failed
+  ✓ [2/9] https://www.britannica.com/topic/Eiffel-Tower-Pari... (3875 chars)
+  ✓ [3/9] https://www.paristickets.com/eiffel-tower/about/... (268 chars)
+  ✓ [4/9] https://www.toureiffel.paris/en/news/history-and-c... (2674 chars)
+  ✓ [5/9] https://www.toureiffel.paris/en/news/history-and-c... (3056 chars)
+  ✓ [6/9] https://www.toureiffel.paris/en/news/events/eiffel... (1285 chars)
+  ⚠️  Truncated content: 64010 → 20000 chars
+  ✓ [7/9] https://en.wikipedia.org/wiki/Eiffel_Tower... (20000 chars)
+  ✓ [8/9] https://www.facebook.com/museum.of.artifacts/posts... (1958 chars)
+  ✓ [9/9] https://lockandenjoy.com/en/curiosities-about-the-... (5328 chars)
+
+✓ Successfully scraped 8/9 URLs
+      Successfully scraped 8 documents
+
+[3/3] Preparing corpus...
+      ✓ Saved to: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\raw\corpus_The_Eiffel_Tower_is_330_meters_tall_20251128_043545.json
+
+============================================================
+COLLECTION COMPLETE
+============================================================
+
+✓ Phase 0: 3.55s (8 docs, 6,540 words)
+[Phase 1] Indexing...
+Loading corpus from: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\raw\corpus_The_Eiffel_Tower_is_330_meters_tall_20251128_043545.json
+Extracted 215 sentences from 8 documents
+
+Filtering 215 sentences...
+   Filtered: 215 → 202 sentences
+   Removed: 13 low-quality/duplicate sentences
+
+🚀 FUNNEL ARCHITECTURE: BM25 filter → Encode top 50 → FAISS
+   Total sentences: 202
+   Claim: The Eiffel Tower is 330 meters tall
+
+[1/4] Saving sentence store (ALL sentences)...
+   Saved 202 sentences to sentence_store.pkl (0.00s)
+
+[2/4] Building BM25 Index on ALL 202 sentences (cheap filter)...
+   ✓ BM25 index built and saved (0.00s)
+
+[3/4] Querying BM25 to get Top 50 candidates...
+   ✓ Retrieved top 50 candidates (0.00s)
+   Score range: 13.54 → 3.78
+   ✓ Saved top 50 candidates to top50_candidates.pkl
+
+[4/4] Encoding ONLY Top 50 candidates (expensive operation)...
+   ⚡ Model pre-loaded, encoding only (no initialization overhead)
+   📊 Encoding 50 sentences instead of 202 (4.0x reduction!)
+Batches:   0%|                                                | 0/4 [00:00<?, ?it/s]Batches:  25%|##########                              | 1/4 [00:00<00:00,  5.22it/s]Batches:  75%|##############################          | 3/4 [00:00<00:00,  9.07it/s]Batches: 100%|########################################| 4/4 [00:00<00:00, 10.79it/s]
+   ✓ Encoding completed in 0.37s (133.8 sentences/sec)
+   💾 Memory saved: 152 embeddings not created!
+   Saved FAISS index to faiss_index.bin (0.00s)
+
+======================================================================
+✓ FUNNEL ARCHITECTURE COMPLETED SUCCESSFULLY!
+======================================================================
+  Location: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\index
+  BM25 index: 202 sentences (cheap filter)
+  FAISS index: 50 embeddings (expensive operation)
+  Efficiency gain: 4.0x less encoding work!
+  Time breakdown:
+    - BM25 build: 0.00s
+    - BM25 query: 0.00s
+    - Encoding 50 sentences: 0.37s
+    - Total: 0.38s
+  Estimated time saved vs encoding all: 1.14s
+✓ Phase 1: 0.60s (BM25 + encoding top 50)
+   Reinitializing Retrieval Orchestrator to load new indexes...
+Initializing Retrieval Orchestrator...
+  Index directory: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\index
+  ✓ BM25 retriever loaded
+  ✓ Embedding retriever loaded
+  ✓ Metadata handler initialized
+  Weights: Semantic=0.5, Lexical=0.3, Metadata=0.2
+
+[Phase 2] Retrieval...
+✓ Phase 2: 0.48s
+
+✓ Total processing: 4.63s
+
+Top 3 Evidence:
+  1. [0.694] It rests on a base that is 5 meters (17 feet) tall, and the TV antenna atop the tower gives it a tot...
+  2. [0.678] The Eiffel Tower reached the height of 330 meters (1,083 feet) on March 15, 2022 thanks to this succ...
+  3. [0.674] The Eiffel Tower will grow to a height of 330 meters (1,083 feet) with the installation of a 6 meter...
+
+================================================================================
+CLAIM 3/5: Python was created by Guido van Rossum in 1991
+================================================================================
+
+[Phase 0] Data Collection...
+
+============================================================
+DATA COLLECTION PIPELINE
+============================================================
+Claim: Python was created by Guido van Rossum in 1991
+Target URLs: 10
+
+[1/3] Searching the web...
+      Found 8 URLs
+
+[2/3] Scraping 8 URLs...
+⚡ Concurrent scraping: 8 URLs with 10 workers
+  ✓ [1/8] https://github.blog/developer-skills/programming-l... (9622 chars)
+  ✓ [2/8] https://computerhistory.org/profile/guido-van-ross... (2044 chars)
+  ✓ [3/8] https://docs.python.org/3/faq/general.html... (17407 chars)
+  ✓ [4/8] https://www.w3schools.com/python/python_intro.asp... (1997 chars)
+  ✓ [5/8] https://www.ebsco.com/research-starters/biography/... (12321 chars)
+  ✓ [6/8] https://cs.stanford.edu/people/nick/py/python-abou... (2837 chars)
+  ⚠️  Truncated content: 76584 → 20000 chars
+  ✓ [7/8] https://en.wikipedia.org/wiki/Python_(programming_... (20000 chars)
+  ✓ [8/8] https://pythoninstitute.org/about-python... (6858 chars)
+
+✓ Successfully scraped 8/8 URLs
+      Successfully scraped 8 documents
+
+[3/3] Preparing corpus...
+      ✓ Saved to: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\raw\corpus_Python_was_created_by_Guido_van_Rossum_in_1991_20251128_043553.json
+
+============================================================
+COLLECTION COMPLETE
+============================================================
+
+✓ Phase 0: 1.70s (8 docs, 11,409 words)
+[Phase 1] Indexing...
+Loading corpus from: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\raw\corpus_Python_was_created_by_Guido_van_Rossum_in_1991_20251128_043553.json
+Extracted 534 sentences from 8 documents
+
+Filtering 534 sentences...
+   Filtered: 534 → 494 sentences
+   Removed: 40 low-quality/duplicate sentences
+
+🚀 FUNNEL ARCHITECTURE: BM25 filter → Encode top 50 → FAISS
+   Total sentences: 494
+   Claim: Python was created by Guido van Rossum in 1991
+
+[1/4] Saving sentence store (ALL sentences)...
+   Saved 494 sentences to sentence_store.pkl (0.00s)
+
+[2/4] Building BM25 Index on ALL 494 sentences (cheap filter)...
+   ✓ BM25 index built and saved (0.01s)
+
+[3/4] Querying BM25 to get Top 50 candidates...
+   ✓ Retrieved top 50 candidates (0.00s)
+   Score range: 25.78 → 4.84
+   ✓ Saved top 50 candidates to top50_candidates.pkl
+
+[4/4] Encoding ONLY Top 50 candidates (expensive operation)...
+   ⚡ Model pre-loaded, encoding only (no initialization overhead)
+   📊 Encoding 50 sentences instead of 494 (9.9x reduction!)
+Batches:   0%|                                                | 0/4 [00:00<?, ?it/s]Batches:  25%|##########                              | 1/4 [00:00<00:00,  4.74it/s]Batches:  50%|####################                    | 2/4 [00:00<00:00,  6.27it/s]Batches: 100%|########################################| 4/4 [00:00<00:00, 10.95it/s]Batches: 100%|########################################| 4/4 [00:00<00:00,  9.18it/s]
+   ✓ Encoding completed in 0.44s (113.4 sentences/sec)
+   💾 Memory saved: 444 embeddings not created!
+   Saved FAISS index to faiss_index.bin (0.00s)
+
+======================================================================
+✓ FUNNEL ARCHITECTURE COMPLETED SUCCESSFULLY!
+======================================================================
+  Location: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\index
+  BM25 index: 494 sentences (cheap filter)
+  FAISS index: 50 embeddings (expensive operation)
+  Efficiency gain: 9.9x less encoding work!
+  Time breakdown:
+    - BM25 build: 0.01s
+    - BM25 query: 0.00s
+    - Encoding 50 sentences: 0.44s
+    - Total: 0.45s
+  Estimated time saved vs encoding all: 3.92s
+✓ Phase 1: 1.04s (BM25 + encoding top 50)
+   Reinitializing Retrieval Orchestrator to load new indexes...
+Initializing Retrieval Orchestrator...
+  Index directory: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\index
+  ✓ BM25 retriever loaded
+  ✓ Embedding retriever loaded
+  ✓ Metadata handler initialized
+  Weights: Semantic=0.5, Lexical=0.3, Metadata=0.2
+
+[Phase 2] Retrieval...
+✓ Phase 2: 0.43s
+
+✓ Total processing: 3.17s
+
+Top 3 Evidence:
+  1. [0.889] Python was created by Guido van Rossum and first released on February 20, 1991....
+  2. [0.788] Python was created in 1991 and for many years was run by Guido Van Rossum, who is kind of a rock sta...
+  3. [0.737] It was created by Guido van Rossum, and released in 1991....
+
+================================================================================
+CLAIM 4/5: The Great Wall of China is visible from space
+================================================================================
+
+[Phase 0] Data Collection...
+
+============================================================
+DATA COLLECTION PIPELINE
+============================================================
+Claim: The Great Wall of China is visible from space
+Target URLs: 10
+
+[1/3] Searching the web...
+      Found 8 URLs
+
+[2/3] Scraping 8 URLs...
+      ⚠️  Filtered out 1 URLs from blocked domains
+⚡ Concurrent scraping: 7 URLs with 10 workers
+  ✓ [1/7] https://en.wikipedia.org/wiki/Artificial_structure... (7118 chars)
+  ✓ [2/7] https://www.nasa.gov/image-article/great-wall/... (353 chars)
+  ✓ [3/7] https://www.scientificamerican.com/article/is-chin... (5770 chars)
+  ✓ [4/7] https://www.wtamu.edu/~cbaird/sq/2012/12/11/what-m... (1223 chars)
+  ✓ [5/7] https://www.reddit.com/r/todayilearned/comments/1k... (520 chars)
+  ✓ [6/7] https://www.skyatnightmagazine.com/space-science/c... (4976 chars)
+  ✗ [7/7] https://www.facebook.com/HistoryExtra/videos/can-y... failed
+
+✓ Successfully scraped 6/7 URLs
+      Successfully scraped 6 documents
+
+[3/3] Preparing corpus...
+      ✓ Saved to: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\raw\corpus_The_Great_Wall_of_China_is_visible_from_space_20251128_043603.json
+
+============================================================
+COLLECTION COMPLETE
+============================================================
+
+✓ Phase 0: 3.71s (6 docs, 3,311 words)
+[Phase 1] Indexing...
+Loading corpus from: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\raw\corpus_The_Great_Wall_of_China_is_visible_from_space_20251128_043603.json
+Extracted 174 sentences from 6 documents
+
+Filtering 174 sentences...
+   Filtered: 174 → 137 sentences
+   Removed: 37 low-quality/duplicate sentences
+
+🚀 FUNNEL ARCHITECTURE: BM25 filter → Encode top 50 → FAISS
+   Total sentences: 137
+   Claim: The Great Wall of China is visible from space
+
+[1/4] Saving sentence store (ALL sentences)...
+   Saved 137 sentences to sentence_store.pkl (0.00s)
+
+[2/4] Building BM25 Index on ALL 137 sentences (cheap filter)...
+   ✓ BM25 index built and saved (0.00s)
+
+[3/4] Querying BM25 to get Top 50 candidates...
+   ✓ Retrieved top 50 candidates (0.00s)
+   Score range: 8.96 → 3.30
+   ✓ Saved top 50 candidates to top50_candidates.pkl
+
+[4/4] Encoding ONLY Top 50 candidates (expensive operation)...
+   ⚡ Model pre-loaded, encoding only (no initialization overhead)
+   📊 Encoding 50 sentences instead of 137 (2.7x reduction!)
+Batches:   0%|                                                | 0/4 [00:00<?, ?it/s]Batches:  25%|##########                              | 1/4 [00:00<00:00,  4.92it/s]Batches:  75%|##############################          | 3/4 [00:00<00:00,  8.69it/s]Batches: 100%|########################################| 4/4 [00:00<00:00, 10.27it/s]
+   ✓ Encoding completed in 0.39s (127.7 sentences/sec)
+   💾 Memory saved: 87 embeddings not created!
+   Saved FAISS index to faiss_index.bin (0.00s)
+
+======================================================================
+✓ FUNNEL ARCHITECTURE COMPLETED SUCCESSFULLY!
+======================================================================
+  Location: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\index
+  BM25 index: 137 sentences (cheap filter)
+  FAISS index: 50 embeddings (expensive operation)
+  Efficiency gain: 2.7x less encoding work!
+  Time breakdown:
+    - BM25 build: 0.00s
+    - BM25 query: 0.00s
+    - Encoding 50 sentences: 0.39s
+    - Total: 0.39s
+  Estimated time saved vs encoding all: 0.68s
+✓ Phase 1: 0.49s (BM25 + encoding top 50)
+   Reinitializing Retrieval Orchestrator to load new indexes...
+Initializing Retrieval Orchestrator...
+  Index directory: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\index
+  ✓ BM25 retriever loaded
+  ✓ Embedding retriever loaded
+  ✓ Metadata handler initialized
+  Weights: Semantic=0.5, Lexical=0.3, Metadata=0.2
+
+[Phase 2] Retrieval...
+✓ Phase 2: 0.54s
+
+✓ Total processing: 4.74s
+
+Top 3 Evidence:
+  1. [0.791] What makes the Great Wall of China the only man-made object visible from space?...
+  2. [0.784] "Is China's Great Wall Visible from Space?"....
+  3. [0.748] "Is the Great Wall of China Visible from the Moon?"....
+
+================================================================================
+CLAIM 5/5: Water boils at 100 degrees Celsius at sea level
+================================================================================
+
+[Phase 0] Data Collection...
+
+============================================================
+DATA COLLECTION PIPELINE
+============================================================
+Claim: Water boils at 100 degrees Celsius at sea level
+Target URLs: 10
+
+[1/3] Searching the web...
+      Found 10 URLs
+
+[2/3] Scraping 10 URLs...
+      ⚠️  Filtered out 4 URLs from blocked domains
+⚡ Concurrent scraping: 6 URLs with 10 workers
+  ✓ [1/6] https://www.usatoday.com/story/life/food-dining/20... (3094 chars)
+  ✓ [2/6] https://www.britannica.com/question/When-does-wate... (439 chars)
+  ✓ [3/6] https://www.ebsco.com/research-starters/science/bo... (7501 chars)
+  ✓ [4/6] https://en.wikipedia.org/wiki/High-altitude_cookin... (3295 chars)
+  ✓ [5/6] https://mountainhouse.com/blogs/backpacking-hiking... (8087 chars)
+  ✓ [6/6] https://www.reddit.com/r/askscience/comments/1invt... (402 chars)
+
+✓ Successfully scraped 6/6 URLs
+      Successfully scraped 6 documents
+
+[3/3] Preparing corpus...
+      ✓ Saved to: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\raw\corpus_Water_boils_at_100_degrees_Celsius_at_sea_level_20251128_043611.json
+
+============================================================
+COLLECTION COMPLETE
+============================================================
+
+✓ Phase 0: 1.01s (6 docs, 3,697 words)
+[Phase 1] Indexing...
+Loading corpus from: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\raw\corpus_Water_boils_at_100_degrees_Celsius_at_sea_level_20251128_043611.json
+Extracted 204 sentences from 6 documents
+
+Filtering 204 sentences...
+   Filtered: 204 → 170 sentences
+   Removed: 34 low-quality/duplicate sentences
+
+🚀 FUNNEL ARCHITECTURE: BM25 filter → Encode top 50 → FAISS
+   Total sentences: 170
+   Claim: Water boils at 100 degrees Celsius at sea level
+
+[1/4] Saving sentence store (ALL sentences)...
+   Saved 170 sentences to sentence_store.pkl (0.00s)
+
+[2/4] Building BM25 Index on ALL 170 sentences (cheap filter)...
+   ✓ BM25 index built and saved (0.00s)
+
+[3/4] Querying BM25 to get Top 50 candidates...
+   ✓ Retrieved top 50 candidates (0.00s)
+   Score range: 17.17 → 1.80
+   ✓ Saved top 50 candidates to top50_candidates.pkl
+
+[4/4] Encoding ONLY Top 50 candidates (expensive operation)...
+   ⚡ Model pre-loaded, encoding only (no initialization overhead)
+   📊 Encoding 50 sentences instead of 170 (3.4x reduction!)
+Batches:   0%|                                                | 0/4 [00:00<?, ?it/s]Batches:  25%|##########                              | 1/4 [00:00<00:01,  2.77it/s]Batches:  75%|##############################          | 3/4 [00:00<00:00,  6.46it/s]Batches: 100%|########################################| 4/4 [00:00<00:00,  7.33it/s]
+   ✓ Encoding completed in 0.55s (91.1 sentences/sec)
+   💾 Memory saved: 120 embeddings not created!
+   Saved FAISS index to faiss_index.bin (0.00s)
+
+======================================================================
+✓ FUNNEL ARCHITECTURE COMPLETED SUCCESSFULLY!
+======================================================================
+  Location: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\index
+  BM25 index: 170 sentences (cheap filter)
+  FAISS index: 50 embeddings (expensive operation)
+  Efficiency gain: 3.4x less encoding work!
+  Time breakdown:
+    - BM25 build: 0.00s
+    - BM25 query: 0.00s
+    - Encoding 50 sentences: 0.55s
+    - Total: 0.55s
+  Estimated time saved vs encoding all: 1.32s
+✓ Phase 1: 0.65s (BM25 + encoding top 50)
+   Reinitializing Retrieval Orchestrator to load new indexes...
+Initializing Retrieval Orchestrator...
+  Index directory: E:\File\Code\Stuff Files\CS419 - IR\CS419---FactChecking\data\index
+  ✓ BM25 retriever loaded
+  ✓ Embedding retriever loaded
+  ✓ Metadata handler initialized
+  Weights: Semantic=0.5, Lexical=0.3, Metadata=0.2
+
+[Phase 2] Retrieval...
+✓ Phase 2: 0.82s
+
+✓ Total processing: 2.48s
+
+Top 3 Evidence:
+  1. [0.815] Boiling Point of Water
+At sea level, water boils at 212 degrees Fahrenheit(212°F) or 100 degrees Cel...
+  2. [0.770] The boiling point of water is 212 degrees Fahrenheit or 100 degrees Celsius at sea level....
+  3. [0.735] Water at sea level boils at 212 degrees Fahrenheit; at 5,000 feet above sea level, the boiling point...
+
+================================================================================
+PERFORMANCE SUMMARY - ALL CLAIMS
+================================================================================
+
+INITIALIZATION (one-time): 22.67s
+
+PER-CLAIM PERFORMANCE:
+  Claims processed:           5
+  Average Phase 0:            2.69s
+  Average Phase 1:            0.69s
+  Average Phase 2:            0.52s
+  Average per claim:          3.91s
+
+  Total processing time:      19.56s
+  Total with init:            42.23s
+  Throughput:                 15.3 claims/min
+
+BREAKDOWN BY CLAIM:
+  1. Vietnam is the world's second largest coffee expor |  4.54s (P0: 3.5s P1: 0.7s P2: 0.4s)
+  2. The Eiffel Tower is 330 meters tall                |  4.63s (P0: 3.5s P1: 0.6s P2: 0.5s)
+  3. Python was created by Guido van Rossum in 1991     |  3.17s (P0: 1.7s P1: 1.0s P2: 0.4s)
+  4. The Great Wall of China is visible from space      |  4.74s (P0: 3.7s P1: 0.5s P2: 0.5s)
+  5. Water boils at 100 degrees Celsius at sea level    |  2.48s (P0: 1.0s P1: 0.7s P2: 0.8s)
+
+✅ EXCELLENT! Average processing time is optimal!
+
+================================================================================
+DEMO COMPLETE
+================================================================================

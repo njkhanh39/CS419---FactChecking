@@ -42,6 +42,7 @@ class EmbeddingRetriever:
         self.model = SentenceTransformer(model_name)
         self.index = self._load_faiss()
         self.sentence_store = self._load_sentence_store()
+        self.top_candidates_map = self._load_top_candidates()  # Map FAISS indices to sentence IDs
     
     def _load_faiss(self):
         """Load FAISS index"""
@@ -54,7 +55,7 @@ class EmbeddingRetriever:
         return faiss.read_index(path)
     
     def _load_sentence_store(self):
-        """Load sentence store (metadata)"""
+        """Load sentence store (metadata for ALL sentences)"""
         path = os.path.join(self.index_dir, 'sentence_store.pkl')
         if not os.path.exists(path):
             raise FileNotFoundError(
@@ -63,6 +64,18 @@ class EmbeddingRetriever:
             )
         with open(path, 'rb') as f:
             return pickle.load(f)
+    
+    def _load_top_candidates(self):
+        """Load top candidates mapping (FAISS index position → sentence ID)"""
+        path = os.path.join(self.index_dir, 'top50_candidates.pkl')
+        if not os.path.exists(path):
+            raise FileNotFoundError(
+                f"Top candidates mapping not found at {path}. "
+                "Please run build_index.py with funnel architecture."
+            )
+        with open(path, 'rb') as f:
+            data = pickle.load(f)
+            return data['indices']  # List of sentence IDs in FAISS order
     
     def retrieve(self, query: str, top_k: int = 10) -> List[Dict]:
         """
@@ -95,21 +108,28 @@ class EmbeddingRetriever:
         
         # Search FAISS index
         # distances = cosine similarity scores (because vectors are normalized)
-        # indices = sentence IDs
-        top_k_actual = min(top_k, len(self.sentence_store))
+        # indices = positions in FAISS index (0-49, not sentence IDs!)
+        top_k_actual = min(top_k, len(self.top_candidates_map))
         distances, indices = self.index.search(query_vector, top_k_actual)
         
         # Build results with metadata
         results = []
         for i in range(len(indices[0])):
-            idx = indices[0][i]
+            faiss_idx = indices[0][i]  # Position in FAISS (0-49)
             score = distances[0][i]
             
             # Safety check for invalid index
-            if idx == -1 or idx >= len(self.sentence_store):
+            if faiss_idx == -1 or faiss_idx >= len(self.top_candidates_map):
                 continue
             
-            sentence = self.sentence_store[idx]
+            # Map FAISS position to actual sentence ID in sentence_store
+            sentence_id = self.top_candidates_map[faiss_idx]
+            
+            # Safety check
+            if sentence_id >= len(self.sentence_store):
+                continue
+            
+            sentence = self.sentence_store[sentence_id]
             results.append({
                 'sentence_id': sentence['sentence_id'],
                 'text': sentence['text'],

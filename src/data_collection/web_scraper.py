@@ -3,7 +3,8 @@ Uses trafilatura (primary) and newspaper3k (fallback) for robust extraction
 
 OPTIMIZATIONS:
 - Concurrent execution with ThreadPoolExecutor (10 workers)
-- Strict timeouts (3s) for fail-fast strategy
+- Balanced timeouts (7s) for reliability
+- Content length limiting (20K chars) for performance
 - Text-only headers to reduce bandwidth
 - 5-7x speedup: 15s -> 2-3s for 10 URLs
 """
@@ -24,8 +25,9 @@ class WebScraper:
     """
     
     # Configuration for optimizations
-    DEFAULT_TIMEOUT = 3        # Strict timeout (fail-fast)
+    DEFAULT_TIMEOUT = 7        # Balanced timeout (7s for reliability)
     MAX_WORKERS = 10           # Concurrent threads
+    MAX_CONTENT_LENGTH = 20000 # Limit content to 20K chars for performance
     TEXT_ONLY_HEADERS = {
         'Accept': 'text/html,application/xhtml+xml',
         'Accept-Encoding': 'gzip, deflate',
@@ -36,7 +38,7 @@ class WebScraper:
         Initialize the web scraper with optimizations
         
         Args:
-            timeout: Request timeout in seconds (default: 3s for fail-fast)
+            timeout: Request timeout in seconds (default: 7s for reliability)
             user_agent: Custom user agent string
             max_workers: Number of concurrent workers (default: 10)
         """
@@ -81,6 +83,12 @@ class WebScraper:
             if not text:
                 return None
             
+            # Truncate text to MAX_CONTENT_LENGTH for performance
+            original_length = len(text)
+            if original_length > self.MAX_CONTENT_LENGTH:
+                text = text[:self.MAX_CONTENT_LENGTH]
+                print(f"  ⚠️  Truncated content: {original_length} → {self.MAX_CONTENT_LENGTH} chars")
+            
             # Extract metadata
             metadata = trafilatura.extract_metadata(downloaded)
             
@@ -121,6 +129,13 @@ class WebScraper:
             if not article.text:
                 return None
             
+            # Truncate text to MAX_CONTENT_LENGTH for performance
+            text = article.text
+            original_length = len(text)
+            if original_length > self.MAX_CONTENT_LENGTH:
+                text = text[:self.MAX_CONTENT_LENGTH]
+                print(f"  ⚠️  Truncated content: {original_length} → {self.MAX_CONTENT_LENGTH} chars")
+            
             # Handle publish_date - it can be datetime or string
             date_str = ""
             if article.publish_date:
@@ -131,7 +146,7 @@ class WebScraper:
             
             return {
                 "url": url,
-                "text": article.text,
+                "text": text,
                 "title": article.title or "",
                 "author": ", ".join(article.authors) if article.authors else "",
                 "date": date_str,
@@ -288,7 +303,8 @@ class WebScraper:
         self, 
         search_results: List[Dict],
         max_documents: int = 10,
-        use_concurrent: bool = True
+        use_concurrent: bool = True,
+        blocked_domains: Optional[List[str]] = None
     ) -> List[Dict]:
         """
         Scrape documents from search results with concurrent execution
@@ -297,11 +313,31 @@ class WebScraper:
             search_results: List of search results from web_search.py
             max_documents: Maximum number of documents to scrape (default: 10)
             use_concurrent: Use parallel scraping for 5-7x speedup (default: True)
+            blocked_domains: List of domain strings to filter out (default: None)
             
         Returns:
             List of scraped documents with content and metadata
         """
-        urls = [result["url"] for result in search_results[:max_documents] if result.get("url")]
+        # Extract URLs and filter out blocked domains
+        urls = []
+        filtered_count = 0
+        for result in search_results[:max_documents]:
+            url = result.get("url")
+            if not url:
+                continue
+            
+            # Check if domain is blocked
+            if blocked_domains:
+                domain = urlparse(url).netloc.lower()
+                if any(blocked in domain for blocked in blocked_domains):
+                    filtered_count += 1
+                    continue
+            
+            urls.append(url)
+        
+        if filtered_count > 0:
+            print(f"      ⚠️  Filtered out {filtered_count} URLs from blocked domains")
+        
         documents = self.scrape_multiple_urls(urls, use_concurrent=use_concurrent)
         
         # Merge search metadata with scraped content

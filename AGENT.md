@@ -28,12 +28,12 @@ This is a **fact-checking application** built for CS419 - Information Retrieval 
 - **Location**: `src/retrieval/`
 - **Purpose**: Two-stage funnel for efficient sentence retrieval
 - **Flow**: 
-  - **Stage 1 (BM25)**: 10 articles (~200 sentences) → BM25 → Top 50 sentences (high recall)
-  - **Stage 2 (Hybrid)**: Top 50 → Semantic + Lexical + Metadata → Top 12 (high precision)
+  - **Stage 1 (BM25 - Cheap Filter)**: Build BM25 on ALL sentences (~890) → Query → Top 50 (high recall, fast)
+  - **Stage 2 (Semantic - Expensive)**: Encode ONLY Top 50 → FAISS index (50 embeddings) → Hybrid ranking → Top 12 (high precision)
 - **Key Files**:
-  - `build_index.py` - Build BM25 + FAISS indexes with **batch encoding**
-  - `bm25_retriever.py` - BM25 lexical retrieval (Stage 1)
-  - `embed_retriever.py` - Semantic embedding retrieval (Stage 2)
+  - `build_index.py` - Build BM25 index on ALL sentences, then encode only Top 50 for FAISS
+  - `bm25_retriever.py` - BM25 lexical retrieval (Stage 1 - cheap filter)
+  - `embed_retriever.py` - Semantic embedding retrieval (Stage 2 - on filtered 50)
   - `retrieval_orchestrator.py` - Complete two-stage funnel orchestrator
 - **Hybrid Ranking Formula**: 
   ```
@@ -44,13 +44,14 @@ This is a **fact-checking application** built for CS419 - Information Retrieval 
   - Authority (trusted domains)
   - Entity overlap (named entities match)
 - **⚡ Performance**:
-  - **Baseline**: ~15s (sequential sentence encoding, 200 sentences)
-  - **Optimized**: ~1.5s (batch encoding + GPU + funnel)
+  - **WRONG APPROACH**: Encode all 890 sentences → ~7s (wasteful!)
+  - **CORRECT APPROACH**: BM25 filter → Encode only top 50 → ~0.3s (23x faster!)
   - **Key Optimizations**:
-    - Batch encoding (batch_size=32): 8-10x speedup
+    - **Funnel architecture (CRITICAL)**: BM25 first (cheap), then encode only top 50 (not all 890!)
+    - Batch encoding (batch_size=16-32): Process 50 sentences in 2-3 batches
     - Hardware acceleration (GPU/MPS): Additional 2-3x speedup
     - Fast model (MiniLM-L6-v2): 4x faster than roberta-large
-    - Funnel architecture: Only embed top 50 BM25 results (not all 200)
+  - **Memory Savings**: 50 embeddings instead of 890 (17x reduction)
 
 ### **Phase 2: NLI Inference** (The Brain)
 - **Location**: `src/nli/`

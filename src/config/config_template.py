@@ -30,6 +30,15 @@ TRUSTED_DOMAINS = [
     "gov", "edu", "wikipedia.org"
 ]
 
+# Blocked domains (network restrictions, paywall, or unreliable sources)
+# These domains will be filtered out during data collection
+BLOCKED_DOMAINS = [
+    "medium.com",           # Often blocked in Vietnam
+    "substack.com",         # Paywall
+    "patreon.com",          # Paywall
+    "quora.com",            # Low quality, user-generated content
+]
+
 # Retrieval settings
 BM25_K1 = 1.5
 BM25_B = 0.75

@@ -80,9 +80,21 @@ class DataCollector:
             print("      ✗ No search results found")
             return {"claim": claim, "search_results": [], "corpus": [], "metadata": {}}
         
-        # Step 2: Web Scraping
+        # Step 2: Web Scraping (with domain filtering)
         print(f"\n[2/3] Scraping {len(search_results)} URLs...")
-        documents = self.scraper.scrape_from_search_results(search_results, max_documents=num_urls)
+        
+        # Import blocked domains from config
+        try:
+            from ..config.api_keys import BLOCKED_DOMAINS
+            blocked_domains = BLOCKED_DOMAINS
+        except ImportError:
+            blocked_domains = None
+        
+        documents = self.scraper.scrape_from_search_results(
+            search_results, 
+            max_documents=num_urls,
+            blocked_domains=blocked_domains
+        )
         print(f"      Successfully scraped {len(documents)} documents")
         
         # Step 3: Prepare corpus with metadata
