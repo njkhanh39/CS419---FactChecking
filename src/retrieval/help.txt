@@ -1,19 +1,299 @@
-src/retrieval: finding relevant evidence documents.
+src/retrieval: Phase 1 - Fast Candidate Generation (Funnel Stage 1)
 
-A) build_index.py: 
-    1) Load Data: Read the cleaned documents from the data/processed/ directory.
-    2) Create Index(es):
+PURPOSE:
+--------
+This module implements the first stage of the Funnel Architecture:
+- Takes 20 articles from data collection (Phase 0)
+- Splits into ~500 sentences
+- Uses BM25 to select Top 50 sentences (HIGH RECALL)
+- Prepares sentences for Phase 2 (Hybrid Ranking)
 
-        + For BM25, this involves tokenizing the documents and building an inverted index structure that maps words 
-        to the documents they appear in. The rank-bm25 library is commonly used for this.
+ARCHITECTURE:
+-------------
+Input:  data/raw/corpus_*.json (from Phase 0 - Data Collection)
+        └─> 20 documents with metadata
 
-        + For Embedding Retrieval, this involves using a sentence-transformer model (e.g., SBERT) to convert every
-        document into a numerical vector (an embedding). These vectors are then stored in a specialized, highly efficient 
-        data structure like FAISS (Facebook AI Similarity Search) or Annoy for rapid nearest-neighbor search.
+Process: build_index.py
+        └─> Split into ~500 sentences
+        └─> Build BM25 index (lexical)
+        └─> Build FAISS index (semantic)
 
-    3) Save Index(es): The script saves the generated index file(s) to the data/index/ directory. This is a crucial 
-    step because building an index can be time-consuming, and you only want to do it once 
-    (or whenever your source data changes).
+Output: data/index/
+        ├─> sentence_store.pkl (sentences + metadata)
+        ├─> bm25_index.pkl (BM25 index)
+        └─> faiss_index.bin (embedding index)
 
-B) bm25_retriever.py: gets keyword-relevant docs & their cosine sim scores
-C) embed_retriever.py: gets a list of semantically-relevant documents & their cosine sim scores
+Retrieve: bm25_retriever.py
+        └─> Query: User claim
+        └─> Output: Top 50 sentences (high recall, fast)
+
+
+COMPONENTS:
+-----------
+
+A) build_index.py - Index Builder
+   
+   What it does:
+   1) Loads corpus JSON from data/raw/
+   2) Splits each document into sentences using regex
+   3) Extracts metadata per sentence (doc_title, url, date, domain)
+   4) Builds BM25 index:
+      - Tokenizes sentences (lowercase, extract words)
+      - Creates inverted index for fast keyword matching
+      - Saves to bm25_index.pkl
+   5) Builds FAISS index:
+      - Encodes sentences to embeddings (all-MiniLM-L6-v2)
+      - Normalizes vectors for cosine similarity
+      - Saves to faiss_index.bin
+   6) Saves sentence_store.pkl (all sentences + metadata)
+
+   Usage:
+   ------
+   # Option 1: Automatic (uses latest corpus)
+   python -m src.retrieval.build_index
+
+   # Option 2: Specify corpus file
+   python -m src.retrieval.build_index corpus_Vietnam_coffee_20241127.json
+
+   # Option 3: In code
+   from src.retrieval import IndexBuilder
+   builder = IndexBuilder()
+   builder.build_from_corpus_file('corpus_Vietnam_coffee_20241127.json')
+
+   Output:
+   -------
+   Loading corpus from: data/raw/corpus_Vietnam_coffee_20241127.json
+   Extracted 487 sentences from 20 documents
+
+   1. Saving sentence store...
+      Saved 487 sentences to sentence_store.pkl
+
+   2. Building BM25 Index...
+      Saved BM25 index to bm25_index.pkl
+
+   3. Building Embedding Index (FAISS)...
+      Loading model: all-MiniLM-L6-v2
+      Encoding 487 sentences...
+      Batch: 100%|████████| 16/16 [00:03<00:00,  4.12it/s]
+      Saved FAISS index to faiss_index.bin
+
+   ✓ All indexes built successfully!
+     Location: e:\...\data\index
+     Total sentences indexed: 487
+
+
+B) bm25_retriever.py - BM25 Lexical Retrieval
+
+   What it does:
+   - Performs FAST keyword-based retrieval
+   - Uses BM25 algorithm (term frequency + inverse document frequency)
+   - Goal: HIGH RECALL (capture all potentially relevant sentences)
+   - Returns Top 50 sentences by default (Funnel Stage 1)
+
+   Usage:
+   ------
+   from src.retrieval import BM25Retriever
+
+   retriever = BM25Retriever()
+   results = retriever.retrieve(
+       query="Vietnam is the second largest coffee exporter",
+       top_k=50  # Stage 1: Top 50 for high recall
+   )
+
+   # Access results
+   for sentence in results:
+       print(f"Score: {sentence['score']:.4f}")
+       print(f"Text: {sentence['text']}")
+       print(f"Source: {sentence['doc_domain']}")
+
+   Example Output:
+   ---------------
+   [
+       {
+           'sentence_id': 42,
+           'text': 'Vietnam is the world\'s second-largest coffee producer, exporting approximately 1.7 million tons annually.',
+           'score': 8.7234,  # BM25 score (higher = better match)
+           'doc_id': 5,
+           'doc_title': 'Coffee Export Statistics 2023',
+           'doc_url': 'https://reuters.com/article/coffee-exports',
+           'doc_date': '2023-12-15',
+           'doc_domain': 'reuters.com',
+           'doc_author': 'John Smith',
+           'method': 'bm25'
+       },
+       {
+           'sentence_id': 128,
+           'text': 'After Brazil, Vietnam ranks as the leading exporter of coffee beans globally.',
+           'score': 7.9432,
+           'doc_id': 8,
+           'doc_title': 'Global Coffee Trade Report',
+           'doc_url': 'https://tradereport.com/coffee',
+           'doc_date': '2023-11-20',
+           'doc_domain': 'tradereport.com',
+           'doc_author': 'Jane Doe',
+           'method': 'bm25'
+       },
+       ... (48 more sentences)
+   ]
+
+
+C) embed_retriever.py - Semantic Embedding Retrieval
+
+   What it does:
+   - Performs SEMANTIC similarity search using embeddings
+   - Uses sentence-transformers (all-MiniLM-L6-v2) + FAISS
+   - Captures semantic meaning (not just keywords)
+   - Returns sentences with cosine similarity scores (0-1)
+   - Can be used standalone OR for computing semantic scores in Phase 2
+
+   Usage:
+   ------
+   from src.retrieval import EmbeddingRetriever
+
+   retriever = EmbeddingRetriever()
+   
+   # Option 1: Retrieve top-k sentences
+   results = retriever.retrieve(
+       query="Vietnam coffee export ranking",
+       top_k=10
+   )
+
+   # Option 2: Compute similarity for specific sentences
+   sentences = ["Vietnam exports coffee.", "Brazil produces sugar."]
+   similarities = retriever.compute_similarity(
+       query="Vietnam coffee",
+       sentences=sentences
+   )
+   # Returns: array([0.85, 0.23])
+
+   Example Output:
+   ---------------
+   [
+       {
+           'sentence_id': 42,
+           'text': 'Vietnam is the world\'s second-largest coffee producer...',
+           'score': 0.8756,  # Cosine similarity (0-1, higher = more similar)
+           'doc_id': 5,
+           'doc_title': 'Coffee Export Statistics 2023',
+           'doc_url': 'https://reuters.com/article/coffee-exports',
+           'doc_date': '2023-12-15',
+           'doc_domain': 'reuters.com',
+           'doc_author': 'John Smith',
+           'method': 'embedding'
+       },
+       {
+           'sentence_id': 215,
+           'text': 'The Southeast Asian nation shipped 27 million bags...',
+           'score': 0.8234,
+           'doc_id': 12,
+           'doc_title': 'Vietnam Coffee Industry Overview',
+           'doc_url': 'https://coffeenews.com/vietnam',
+           'doc_date': '2023-10-05',
+           'doc_domain': 'coffeenews.com',
+           'doc_author': 'Mike Johnson',
+           'method': 'embedding'
+       },
+       ... (8 more sentences)
+   ]
+
+
+TYPICAL WORKFLOW (PER CLAIM):
+------------------------------
+Each claim requires fresh evidence collection from the web!
+
+Complete Pipeline for ONE Claim:
+---------------------------------
+
+Step 0: Collect Fresh Data (Phase 0 - Data Collection)
+-------------------------------------------------------
+from src.data_collection import DataCollector
+
+collector = DataCollector(search_api="serpapi")
+claim = "Vietnam is the second largest coffee exporter"
+
+# Search web and scrape 20 fresh articles for THIS claim
+corpus = collector.collect_corpus(claim, num_urls=20)
+# Saves to: data/raw/corpus_Vietnam_is_the_second_20241127_143022.json
+
+
+Step 1: Build Indexes (Phase 1 - Index Building)
+-------------------------------------------------
+from src.retrieval import IndexBuilder
+
+builder = IndexBuilder()
+# Build indexes from the fresh corpus we just collected
+builder.build_from_corpus_file('corpus_Vietnam_is_the_second_20241127_143022.json')
+# This creates: sentence_store.pkl, bm25_index.pkl, faiss_index.bin
+# (~500 sentences from 20 articles)
+
+
+Step 2: Retrieve Top 50 Sentences (Stage 1 - Fast Filtering)
+-------------------------------------------------------------
+from src.retrieval import BM25Retriever
+
+retriever = BM25Retriever()
+top_50_sentences = retriever.retrieve(claim, top_k=50)
+
+print(f"Retrieved {len(top_50_sentences)} candidate sentences")
+# Output: Retrieved 50 candidate sentences
+
+
+Step 3: Pass to Phase 2 (Sentence Ranking)
+-------------------------------------------
+# The top_50_sentences are now ready for Phase 2
+# Phase 2 will:
+# 1) Compute semantic scores (using EmbeddingRetriever)
+# 2) Reuse BM25 scores (already in results)
+# 3) Compute metadata scores
+# 4) Combine: 0.5*semantic + 0.3*lexical + 0.2*metadata
+# 5) Select Top 10 sentences
+
+from src.sentence_ranker import SentenceRanker
+ranker = SentenceRanker()
+top_10_sentences = ranker.rank(claim, top_50_sentences, top_k=10)
+
+
+IMPORTANT NOTES:
+----------------
+✓ Each NEW claim needs its own data collection (fresh web search & scraping)
+✓ You CANNOT reuse old corpus for different claims
+✓ Example: Coffee export corpus won't help verify climate change claims
+
+Why build indexes at all (instead of just searching in memory)?
+- BM25 needs inverted index structure for efficiency
+- FAISS needs normalized vectors for fast similarity search
+- Even for 500 sentences, indexing makes retrieval 100x faster
+- Building indexes takes 5-10 seconds, but retrieval takes <100ms
+
+
+PERFORMANCE:
+------------
+- Index Building: ~5-10 seconds for 500 sentences
+- BM25 Retrieval: <100ms for top-50 from 500 sentences
+- Embedding Retrieval: ~200ms for top-10 from 500 sentences
+
+TIPS:
+-----
+1. Each NEW claim requires fresh data collection (web search + scraping)
+2. Build indexes immediately after data collection for each claim
+3. Use BM25 for Stage 1 (fast, high recall) - get top-50
+4. Use Embeddings for Stage 2 semantic scoring (slower, high precision) - refine to top-10
+5. For the same claim with same corpus, you can reuse indexes (testing/debugging)
+6. In production: collect → index → retrieve → rank → NLI (full pipeline per claim)
+
+TROUBLESHOOTING:
+----------------
+Error: "BM25 index not found"
+→ Solution: Run build_index.py first
+
+Error: "Sentence store not found"
+→ Solution: Run build_index.py to create sentence_store.pkl
+
+Error: "No corpus files found"
+→ Solution: Run data collection (Phase 0) first to create corpus JSON
+
+Low BM25 scores (all <1.0):
+→ Normal: BM25 scores vary by query, focus on relative ranking
+
+Low cosine similarity (all <0.3):
+→ Possible: Corpus doesn't contain relevant information for the claim

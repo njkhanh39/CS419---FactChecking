@@ -1,17 +1,20 @@
-from src.retrieval.bm25_retriever import BM25Retriever
-from src.retrieval.embed_retriever import EmbeddingRetriever
+"""
+End-to-End Fact-Checking Pipeline
 
-# Initialize (loads from disk)
-bm25 = BM25Retriever()
-embed = EmbeddingRetriever()
+Orchestrates all phases:
+  Phase 0: Data Collection (web search + scraping)
+  Phase 1: Indexing & Retrieval (BM25 + Embedding with hybrid ranking)
+  Phase 2: NLI Inference (RoBERTa-MNLI)
+  Phase 3: Aggregation & Verdict
 
-# User claim
-claim = "Vietnam's coffee production dropped by 40%"
+Usage:
+    from src.pipeline.fact_check import FactChecker
+    
+    checker = FactChecker()
+    result = checker.check_claim("Vietnam is the 2nd largest coffee exporter")
+    print(result['verdict'], result['confidence'])
+"""
 
-# Get documents
-docs_lexical = bm25.retrieve(claim, top_k=10)
-docs_semantic = embed.retrieve(claim, top_k=10)
-
-# Combine and deduplicate
-all_docs = docs_lexical + docs_semantic
-# ... proceed to Sentence Ranking
+# TODO: Implement FactChecker class
+# TODO: Implement check_claim() method
+# TODO: Integrate all phases: DataCollector → IndexBuilder → Retrieval → NLI → Aggregation

@@ -16,24 +16,20 @@ This system implements a complete fact-checking pipeline:
    - Web scraping (20 articles)
    - Corpus creation with metadata
 
-2. **Phase 1: Indexing** (Funnel Stage 1 - BM25)
-   - Index 20 articles → ~500 sentences
-   - BM25 retrieval: Select top 50 sentences
-   - Goal: High recall, fast filtering
+2. **Phase 1: Indexing & Retrieval** (Funnel Architecture - Two Stages)
+   - **Stage 1 (BM25)**: Index 20 articles → ~500 sentences → BM25 retrieval → Top 50 sentences (high recall)
+   - **Stage 2 (Hybrid Ranking)**: Combine scores → Top 10 sentences (high precision)
+     - Semantic: 0.5 (embedding similarity)
+     - Lexical: 0.3 (BM25 score)
+     - Metadata: 0.2 (recency, authority, entity overlap)
+   - Goal: Fast candidate generation with precise reranking
 
-3. **Phase 2: Sentence Ranking** (Funnel Stage 2 - Hybrid)
-   - Semantic scoring (embeddings + cosine similarity)
-   - Lexical scoring (BM25)
-   - Metadata scoring (recency, authority, entity overlap)
-   - **Formula**: `Score = 0.5×Semantic + 0.3×Lexical + 0.2×Metadata`
-   - Output: Top 10 sentences
-
-4. **Phase 3: NLI Inference**
+3. **Phase 2: NLI Inference**
    - Create pairs: `[(Sentence_1, Claim), (Sentence_2, Claim), ...]`
    - Batch inference with RoBERTa-MNLI
    - Output: Probabilities (Entailment, Contradiction, Neutral)
 
-5. **Phase 4: Aggregation & Verdict**
+4. **Phase 3: Aggregation & Verdict**
    - Sentence labeling (Support/Refute/Neutral)
    - Score calculation: `+1×P` (Support), `-1×P` (Refute), `0` (Neutral)
    - Final verdict: `S_final = Σ Score_i`
@@ -121,18 +117,22 @@ builder.build_embedding_index(corpus)
 # Saves to: data/index/
 ```
 
-#### 3. Retrieve & Rank Sentences
+#### 3. Retrieve Sentences with Hybrid Ranking
 ```python
 from src.retrieval.bm25_retriever import BM25Retriever
-from src.sentence_ranker.rank_sentences import SentenceRanker
+from src.retrieval.embed_retriever import EmbeddingRetriever
+from src.utils.metadata import MetadataHandler
 
-# Stage 1: BM25 (Top 50)
-retriever = BM25Retriever()
-candidate_sentences = retriever.retrieve(claim, top_k=50)
+# Stage 1: BM25 (Top 50 - High Recall)
+bm25_retriever = BM25Retriever()
+candidate_sentences = bm25_retriever.retrieve(claim, top_k=50)
 
-# Stage 2: Hybrid Ranking (Top 10)
-ranker = SentenceRanker()
-final_sentences = ranker.rank(claim, candidate_sentences, top_k=10)
+# Stage 2: Hybrid Ranking (Top 10 - High Precision)
+embed_retriever = EmbeddingRetriever()
+metadata_handler = MetadataHandler()
+
+# Combine: 0.5×Semantic + 0.3×Lexical + 0.2×Metadata
+final_sentences = hybrid_rank(claim, candidate_sentences, top_k=10)
 ```
 
 #### 4. NLI Inference
@@ -170,12 +170,11 @@ Key directories:
 ## 📖 Documentation
 
 Each module has a `help.txt` file explaining its purpose and usage:
-- `src/data_collection/help.txt`
-- `src/retrieval/help.txt`
-- `src/sentence_ranker/help.txt`
-- `src/nli/help.txt`
-- `src/aggregation/help.txt`
-- `src/pipeline/help.txt`
+- `src/data_collection/help.txt` - Web search and scraping
+- `src/retrieval/help.txt` - BM25 and embedding retrieval with hybrid ranking
+- `src/nli/help.txt` - Natural Language Inference
+- `src/aggregation/help.txt` - Scoring and verdict aggregation
+- `src/pipeline/help.txt` - End-to-end orchestration
 
 ## ⚙️ Configuration
 
@@ -234,4 +233,9 @@ This is a student project for CS419 - Information Retrieval course.
 
 ## 👥 Team
 
-[Add team member names here]
+Our team has 4 members:
+1. Le Tien Dat, Student ID: 23125028
+2. Nguyen Gia Khanh, Student ID: 23125007
+3. Nguyen Thu Uyen, Student ID: 23125048
+4. Cao Thanh Hieu, Student ID: 23125034
+

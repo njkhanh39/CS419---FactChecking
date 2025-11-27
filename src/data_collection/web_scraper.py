@@ -234,6 +234,6 @@ if __name__ == "__main__":
         print(f"Date: {result['date']}")
         print(f"Method: {result['extraction_method']}")
         print(f"Text length: {len(result['text'])} characters")
-        print(f"\nFirst 200 chars:\n{result['text'][:200]}...")
+        print(f"\nFirst 200 chars:\n{result['text']}...")
     else:
         print("Failed to scrape")
