@@ -14,6 +14,7 @@ faiss-cpu
 sentence-transformers
 transformers
 torch
+tf-keras  # TensorFlow Keras (required for some transformers models)
 
 # --- ONNX Runtime (for optimized inference) ---
 onnxruntime
@@ -33,5 +34,6 @@ google-search-results  # SerpApi for Google Search
 # --- Utilities ---
 pathlib
 tqdm  # Progress bars
+regex  # Advanced regex patterns for emoji filtering
 
 # -------------- 

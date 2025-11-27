@@ -44,6 +44,7 @@ data/index/**
 env/
 myenv/
 venv/
+ltdsword/
 
 # API keys (security)
 **/api_keys.py

@@ -13,16 +13,21 @@ This system implements a complete fact-checking pipeline:
 1. **Phase 0: Data Collection**
    - Query generation from claim
    - Web search (Google/Bing via APIs)
-   - Web scraping (20 articles)
+   - Web scraping (10 articles with parallel processing)
    - Corpus creation with metadata
 
 2. **Phase 1: Indexing & Retrieval** (Funnel Architecture - Two Stages)
-   - **Stage 1 (BM25)**: Index 20 articles → ~500 sentences → BM25 retrieval → Top 50 sentences (high recall)
-   - **Stage 2 (Hybrid Ranking)**: Combine scores → Top 10 sentences (high precision)
-     - Semantic: 0.5 (embedding similarity)
-     - Lexical: 0.3 (BM25 score)
-     - Metadata: 0.2 (recency, authority, entity overlap)
-   - Goal: Fast candidate generation with precise reranking
+   - **Stage 1 (BM25 - Cheap Filter)**: 
+     - Build BM25 index on ALL sentences (~890 from 10 articles)
+     - Query BM25 → Top 50 sentences (high recall, <0.1s)
+   - **Stage 2 (Semantic - Expensive)**: 
+     - Encode ONLY the Top 50 BM25 results (not all 890!)
+     - Build FAISS index with 50 embeddings
+     - Hybrid ranking → Top 12 (high precision)
+       - Semantic: 0.5 (embedding similarity)
+       - Lexical: 0.3 (BM25 score)
+       - Metadata: 0.2 (recency, authority, entity overlap)
+   - **Critical**: Don't encode all sentences! Use BM25 as cheap filter first (23x speedup)
 
 3. **Phase 2: NLI Inference**
    - Create pairs: `[(Sentence_1, Claim), (Sentence_2, Claim), ...]`
@@ -79,7 +84,7 @@ from src.pipeline.fact_check import FactChecker
 collector = DataCollector(search_api="serpapi")
 corpus = collector.collect_corpus(
     claim="Vietnam is the world's largest coffee exporter",
-    num_urls=20
+    num_urls=10
 )
 
 # 2. Run fact-checking pipeline

@@ -9,14 +9,14 @@
 │   └── samples/            # Example input/output for demonstration
 │
 ├── src/
-│   ├── data_collection/    # Phase 0: Web data gathering ✅
+│   ├── data_collection/    # Phase 0: Web data gathering ✅ (10 docs, 2-3s)
 │   │   ├── web_search.py      # Query generation & search APIs (SerpApi, Bing)
-│   │   ├── web_scraper.py     # Web scraping (trafilatura, newspaper3k)
+│   │   ├── web_scraper.py     # Parallel web scraping (ThreadPoolExecutor)
 │   │   ├── collector.py       # Complete pipeline orchestrator
 │   │   └── __init__.py
 │   │
-│   ├── retrieval/          # Phase 1: Indexing & Retrieval (Funnel Architecture) ✅
-│   │   ├── build_index.py        # Build BM25 + FAISS indexes from corpus
+│   ├── retrieval/          # Phase 1: Indexing & Retrieval ✅ (~200 sentences, 1.5s)
+│   │   ├── build_index.py        # Batch encoding + BM25/FAISS indexes
 │   │   ├── bm25_retriever.py     # BM25 lexical search (Stage 1: Top 50)
 │   │   └── embed_retriever.py    # Semantic search with embeddings
 │   │
