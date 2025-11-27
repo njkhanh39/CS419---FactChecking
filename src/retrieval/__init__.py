@@ -27,10 +27,12 @@ top_50 = retriever.retrieve(claim="...", top_k=50)
 from .build_index import IndexBuilder, build_indices_from_latest
 from .bm25_retriever import BM25Retriever
 from .embed_retriever import EmbeddingRetriever
+from .retrieval_orchestrator import RetrievalOrchestrator
 
 __all__ = [
     'IndexBuilder',
     'build_indices_from_latest',
     'BM25Retriever',
-    'EmbeddingRetriever'
+    'EmbeddingRetriever',
+    'RetrievalOrchestrator'
 ]

@@ -61,6 +61,106 @@ class IndexBuilder:
         sentences = [s.strip() for s in sentences if len(s.strip()) > 10]
         return sentences
     
+    def filter_sentences(self, sentences: List[Dict]) -> List[Dict]:
+        """
+        Filter sentences to remove:
+        - Too short sentences (< 20 chars)
+        - Too long sentences (> 500 chars)
+        - Near-duplicate sentences (>80% overlap)
+        - Low-information sentences (all caps, urls only, etc.)
+        
+        Args:
+            sentences: List of sentence dictionaries
+            
+        Returns:
+            Filtered list of sentence dictionaries
+        """
+        print(f"\nFiltering {len(sentences)} sentences...")
+        filtered = []
+        seen_texts = set()
+        
+        for sentence in sentences:
+            text = sentence['text'].strip()
+            
+            # Rule 1: Length filter (20-500 chars)
+            if len(text) < 20 or len(text) > 500:
+                continue
+            
+            # Rule 2: Remove sentences with too few words (< 5 words)
+            word_count = len(text.split())
+            if word_count < 5:
+                continue
+            
+            # Rule 3: Remove all-caps sentences (likely headers/spam)
+            if text.isupper() and len(text) > 30:
+                continue
+            
+            # Rule 4: Remove sentences that are mostly URLs
+            url_pattern = r'https?://\S+'
+            urls = re.findall(url_pattern, text)
+            if urls and len(''.join(urls)) > len(text) * 0.5:
+                continue
+            
+            # Rule 5: Filter inappropriate symbols (emojis, excessive punctuation)
+            # Remove emojis and special unicode characters
+            emoji_pattern = re.compile(
+                "["
+                u"\U0001F600-\U0001F64F"  # emoticons
+                u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+                u"\U0001F680-\U0001F6FF"  # transport & map symbols
+                u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+                u"\U00002702-\U000027B0"
+                u"\U000024C2-\U0001F251"
+                "]+", flags=re.UNICODE
+            )
+            emoji_count = len(emoji_pattern.findall(text))
+            # If >3 emojis or emoji content >10% of text, skip
+            if emoji_count > 3:
+                continue
+            
+            # Remove text with excessive special characters
+            special_chars = re.findall(r'[^a-zA-Z0-9\s.,!?;:\-\'"]', text)
+            if len(special_chars) > len(text) * 0.15:  # >15% special chars
+                continue
+            
+            # Rule 6: Check for near-duplicates using normalized text
+            normalized_text = ' '.join(text.lower().split())
+            
+            # Check if we've seen a very similar sentence
+            is_duplicate = False
+            for seen in seen_texts:
+                # Simple overlap check: count common words
+                seen_words = set(seen.split())
+                current_words = set(normalized_text.split())
+                
+                if len(seen_words) == 0 or len(current_words) == 0:
+                    continue
+                
+                overlap = len(seen_words & current_words)
+                max_len = max(len(seen_words), len(current_words))
+                overlap_ratio = overlap / max_len
+                
+                # If >80% overlap, consider it duplicate
+                if overlap_ratio > 0.80:
+                    is_duplicate = True
+                    break
+            
+            if is_duplicate:
+                continue
+            
+            # Passed all filters - add to results
+            filtered.append(sentence)
+            seen_texts.add(normalized_text)
+        
+        print(f"   Filtered: {len(sentences)} → {len(filtered)} sentences")
+        print(f"   Removed: {len(sentences) - len(filtered)} low-quality/duplicate sentences")
+        
+        # Re-assign sentence IDs
+        for idx, sentence in enumerate(filtered):
+            sentence['sentence_id'] = idx
+        
+        return filtered
+    
     def load_corpus_from_json(self, corpus_path: str) -> List[Dict]:
         """
         Load corpus from JSON file (Phase 0 output format)
@@ -95,6 +195,10 @@ class IndexBuilder:
                 })
         
         print(f"Extracted {len(sentences)} sentences from {len(corpus_documents)} documents")
+        
+        # Apply quality filters
+        sentences = self.filter_sentences(sentences)
+        
         return sentences
     
     def tokenize(self, text: str) -> List[str]:
