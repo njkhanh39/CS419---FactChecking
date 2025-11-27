@@ -16,34 +16,26 @@ This is a **fact-checking application** built for CS419 - Information Retrieval 
   - `collector.py` - Complete pipeline orchestrator
 - **Output**: `data/raw/corpus_*.json` with 20 documents + metadata
 
-### **Phase 1: Indexing** (Funnel Stage 1 - BM25)
+### **Phase 1: Indexing & Retrieval** (Funnel Architecture) ✅ IMPLEMENTED
 - **Location**: `src/retrieval/`
-- **Purpose**: Fast candidate generation with high recall
-- **Flow**: 20 articles (~500 sentences) → BM25 → Top 50 sentences
+- **Purpose**: Two-stage funnel for efficient sentence retrieval
+- **Flow**: 
+  - **Stage 1 (BM25)**: 20 articles (~500 sentences) → BM25 → Top 50 sentences (high recall)
+  - **Stage 2 (Hybrid)**: Top 50 → Semantic + Lexical + Metadata → Top 10 (high precision)
 - **Key Files**:
-  - `build_index.py` - Build BM25 + FAISS indexes
-  - `bm25_retriever.py` - BM25 lexical retrieval
-  - `embed_retriever.py` - Semantic embedding retrieval
-- **Algorithm**: BM25 (sparse retrieval, keyword matching)
-
-### **Phase 2: Sentence Ranking** (Funnel Stage 2 - Hybrid)
-- **Location**: `src/sentence_ranker/`
-- **Purpose**: Precise reranking with multiple signals
-- **Flow**: Top 50 → Hybrid Scoring → Top 10 sentences
-- **Key Files**:
-  - `split_sentences.py` - Break documents into sentences
-  - `rank_sentences.py` - Hybrid ranking algorithm
-  - `filters.py` - Entity/keyword/metadata filtering
-- **Scoring Formula**: 
+  - `build_index.py` - Build BM25 + FAISS indexes, split sentences
+  - `bm25_retriever.py` - BM25 lexical retrieval (Stage 1)
+  - `embed_retriever.py` - Semantic embedding retrieval (Stage 2)
+- **Hybrid Ranking Formula**: 
   ```
   Score = 0.5 × Semantic + 0.3 × Lexical (BM25) + 0.2 × Metadata
   ```
-- **Metadata Components**:
+- **Metadata Components** (from `utils/metadata.py`):
   - Recency (date proximity)
   - Authority (trusted domains)
   - Entity overlap (named entities match)
 
-### **Phase 3: NLI Inference** (The Brain)
+### **Phase 2: NLI Inference** (The Brain)
 - **Location**: `src/nli/`
 - **Purpose**: Determine if sentences support/refute the claim
 - **Flow**: Top 10 sentences → RoBERTa-MNLI → Probabilities (Entailment/Contradiction/Neutral)
@@ -53,7 +45,7 @@ This is a **fact-checking application** built for CS419 - Information Retrieval 
 - **Model**: `roberta-large-mnli` or `roberta-base-mnli`
 - **Output**: For each sentence → {label: "SUPPORT/REFUTE/NEUTRAL", confidence: 0.0-1.0}
 
-### **Phase 4: Aggregation & Verdict**
+### **Phase 3: Aggregation & Verdict**
 - **Location**: `src/aggregation/`
 - **Purpose**: Combine evidence and produce final verdict
 - **Flow**: NLI results → Scoring → Thresholding → Final Verdict
@@ -77,14 +69,14 @@ This is a **fact-checking application** built for CS419 - Information Retrieval 
   Otherwise        → INSUFFICIENT EVIDENCE
   ```
 
-### **Phase 5: End-to-End Pipeline**
+### **Phase 4: End-to-End Pipeline**
 - **Location**: `src/pipeline/`
 - **Purpose**: Orchestrate all phases
 - **Key File**: `fact_check.py`
 - **Flow**: 
   ```
-  claim → collect_data() → build_index() → retrieve() → 
-  rank() → nli_inference() → aggregate() → verdict
+  claim → collect_data() → build_index() → 
+  retrieve_and_rank() → nli_inference() → aggregate() → verdict
   ```
 
 ## Project Structure
@@ -93,11 +85,10 @@ This is a **fact-checking application** built for CS419 - Information Retrieval 
 CS419---FactChecking/
 ├── src/
 │   ├── data_collection/    # Phase 0 ✅
-│   ├── retrieval/          # Phase 1 (BM25, FAISS)
-│   ├── sentence_ranker/    # Phase 2 (Hybrid ranking)
-│   ├── nli/                # Phase 3 (RoBERTa-MNLI)
-│   ├── aggregation/        # Phase 4 (Scoring, voting)
-│   ├── pipeline/           # Phase 5 (Orchestration)
+│   ├── retrieval/          # Phase 1 (BM25, FAISS, Hybrid Ranking) ✅
+│   ├── nli/                # Phase 2 (RoBERTa-MNLI)
+│   ├── aggregation/        # Phase 3 (Scoring, voting)
+│   ├── pipeline/           # Phase 4 (Orchestration)
 │   ├── config/             # Configuration files
 │   │   ├── paths.py        # Project paths
 │   │   └── api_keys.py     # API keys (gitignored)
@@ -151,22 +142,22 @@ User: "Vietnam is the world's second largest coffee exporter"
     ↓
 [Phase 0] Scrape → 20 documents with metadata
     ↓
-[Phase 1] Extract ~500 sentences → BM25 → Top 50
+[Phase 1 - Stage 1] Extract ~500 sentences → BM25 → Top 50
     ↓
-[Phase 2] Hybrid Ranking:
+[Phase 1 - Stage 2] Hybrid Ranking:
     - Semantic: 0.85 (cosine similarity)
     - Lexical: 0.72 (BM25 score)
     - Metadata: 0.90 (recent, trusted, entities match)
     - Combined: 0.83
     → Top 10 sentences
     ↓
-[Phase 3] NLI for each sentence:
+[Phase 2] NLI for each sentence:
     - Sentence 1: SUPPORT (0.95)
     - Sentence 2: SUPPORT (0.89)
     - Sentence 3: NEUTRAL (0.67)
     - ...
     ↓
-[Phase 4] Aggregate:
+[Phase 3] Aggregate:
     - Score = 0.95 + 0.89 + 0 + ... = 0.73
     - 0.73 > 0.5 → VERDICT: SUPPORTED
     ↓
@@ -274,12 +265,14 @@ Output:
 4. Return ranked results with scores
 5. Follow BM25 parameters from `config_template.py`
 
-### Task: Implement Sentence Ranker
-1. Read `src/sentence_ranker/help.txt`
+### Task: Implement Hybrid Ranking in Retrieval
+1. Read `src/retrieval/help.txt`
 2. Import `MetadataHandler` from `src/utils/metadata.py`
-3. Calculate three scores: semantic, lexical, metadata
-4. Combine with weights: 0.5, 0.3, 0.2
-5. Return top-k sentences
+3. Get BM25 scores from `bm25_retriever.py` (lexical)
+4. Get semantic scores from `embed_retriever.py` (cosine similarity)
+5. Get metadata scores from `MetadataHandler`
+6. Combine with weights: 0.5 (semantic), 0.3 (lexical), 0.2 (metadata)
+7. Return top-k sentences
 
 ### Task: Implement NLI Module
 1. Read `src/nli/help.txt`

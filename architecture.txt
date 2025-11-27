@@ -9,36 +9,31 @@
 │   └── samples/            # Example input/output for demonstration
 │
 ├── src/
-│   ├── data_collection/    # Phase 0: Web data gathering [NEW]
+│   ├── data_collection/    # Phase 0: Web data gathering ✅
 │   │   ├── web_search.py      # Query generation & search APIs (SerpApi, Bing)
 │   │   ├── web_scraper.py     # Web scraping (trafilatura, newspaper3k)
 │   │   ├── collector.py       # Complete pipeline orchestrator
 │   │   └── __init__.py
 │   │
-│   ├── retrieval/          # Phase 1-2: IR pipeline (Funnel Stage 1)
-│   │   ├── bm25_retriever.py     # Implements lexical search (BM25)
-│   │   ├── embed_retriever.py    # Implements semantic search
-│   │   └── build_index.py        # Utility script for offline indexing
+│   ├── retrieval/          # Phase 1: Indexing & Retrieval (Funnel Architecture) ✅
+│   │   ├── build_index.py        # Build BM25 + FAISS indexes from corpus
+│   │   ├── bm25_retriever.py     # BM25 lexical search (Stage 1: Top 50)
+│   │   └── embed_retriever.py    # Semantic search with embeddings
 │   │
-│   ├── sentence_ranker/    # Phase 3: Sentence ranking (Funnel Stage 2)
-│   │   ├── split_sentences.py    # Break documents into sentences
-│   │   ├── rank_sentences.py     # Score & rank: semantic + BM25 + metadata
-│   │   └── filters.py            # Entity/keyword/metadata filters
-│   │
-│   ├── nli/                # Phase 4: Natural Language Inference
+│   ├── nli/                # Phase 2: Natural Language Inference
 │   │   ├── nli_model.py          # Wrapper around RoBERTa-base-MNLI
 │   │   ├── batch_inference.py    # Batch processing for efficiency
 │   │   [[└── onnx_model/           # ONNX-optimized version]] --> not yet
 │   │
-│   ├── aggregation/        # Phase 5: Scoring & aggregation
-│   │   ├── voting.py             # Majority voting aggregation
+│   ├── aggregation/        # Phase 3: Scoring & aggregation
 │   │   ├── scoring.py            # Numerical scoring from NLI outputs
+│   │   ├── voting.py             # Majority voting aggregation
 │   │   └── final_decision.py     # Final verdict with confidence
 │   │
 │   ├── pipeline/           # End-to-end orchestration
 │   │   └── fact_check.py         # Complete pipeline:
-│   │                             # claim → search → scrape → retrieve → 
-│   │                             # rank → NLI → verdict
+│   │                             # claim → collect_data → build_index → 
+│   │                             # retrieve (BM25+Embedding) → NLI → aggregate → verdict
 │   │
 │   ├── config/
 │   │   └── paths.py              # Project paths configuration
