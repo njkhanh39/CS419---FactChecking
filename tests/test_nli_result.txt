@@ -1,0 +1,337 @@
+================================================================================
+RETRIEVAL + NLI PIPELINE DEMO
+================================================================================
+
+[INITIALIZATION] Loading models (This happens once per server start)...
+   Loading Sentence Transformer...
+   💻 Using CPU
+   💻 Using CPU
+   ⚠️  Adjusted batch_size: 32 → 16 (optimized for CPU)
+   Loading model: all-MiniLM-L6-v2...
+   ✓ Model loaded and ready!
+   Loading NLI Model (RoBERTa-MNLI)...
+✓ Initialization complete in 12.72s
+
+================================================================================
+CLAIM 1: Vietnam is the world's second largest coffee exporter
+================================================================================
+
+1. Data Collection...
+
+============================================================
+DATA COLLECTION PIPELINE
+============================================================
+Claim: Vietnam is the world's second largest coffee exporter
+Target URLs: 5
+
+[1/3] Searching the web...
+      Found 4 URLs
+
+[2/3] Scraping 4 URLs...
+      ⚠️  Filtered out 1 URLs from blocked domains
+⚡ Concurrent scraping: 3 URLs with 10 workers
+  ✓ [1/3] https://www.tradeimex.in/blogs/top-10-coffee-produ... (11094 chars)
+  ✓ [2/3] https://www.vietnam-briefing.com/news/vietnam-coff... (16401 chars)
+  ✓ [3/3] https://www.reddit.com/r/Coffee/comments/5db3or/vi... (355 chars)
+
+✓ Successfully scraped 3/3 URLs
+      Successfully scraped 3 documents
+
+[3/3] Preparing corpus...
+      ✓ Saved to: C:\Users\Admin\Documents\HCMUS\GitHub\CS419---FactChecking\data\raw\corpus_Vietnam_is_the_world_s_second_largest_coffee_expor_20251128_224147.json
+
+============================================================
+COLLECTION COMPLETE
+============================================================
+
+   ✓ Collected 3 docs (4.40s)
+2. Indexing...
+Loading corpus from: C:\Users\Admin\Documents\HCMUS\GitHub\CS419---FactChecking\data\raw\corpus_Vietnam_is_the_world_s_second_largest_coffee_expor_20251128_224147.json
+Extracted 199 sentences from 3 documents
+
+Filtering 199 sentences...
+   Filtered: 199 → 192 sentences
+   Removed: 7 low-quality/duplicate sentences
+
+🚀 FUNNEL ARCHITECTURE: BM25 filter → Encode top 50 → FAISS
+   Total sentences: 192
+   Claim: Vietnam is the world's second largest coffee exporter
+
+[1/4] Saving sentence store (ALL sentences)...
+   Saved 192 sentences to sentence_store.pkl (0.00s)
+
+[2/4] Building BM25 Index on ALL 192 sentences (cheap filter)...
+   ✓ BM25 index built and saved (0.00s)
+
+[3/4] Querying BM25 to get Top 50 candidates...
+   ✓ Retrieved top 50 candidates (0.00s)
+   Score range: 13.86 → 3.97
+   ✓ Saved top 50 candidates to top50_candidates.pkl
+
+[4/4] Encoding ONLY Top 50 candidates (expensive operation)...
+   ⚡ Model pre-loaded, encoding only (no initialization overhead)
+   📊 Encoding 50 sentences instead of 192 (3.8x reduction!)
+   ✓ Encoding completed in 0.18s (280.9 sentences/sec)
+   💾 Memory saved: 142 embeddings not created!
+   Saved FAISS index to faiss_index.bin (0.00s)
+
+======================================================================
+✓ FUNNEL ARCHITECTURE COMPLETED SUCCESSFULLY!
+======================================================================
+  Location: C:\Users\Admin\Documents\HCMUS\GitHub\CS419---FactChecking\data\index
+  BM25 index: 192 sentences (cheap filter)
+  FAISS index: 50 embeddings (expensive operation)
+  Efficiency gain: 3.8x less encoding work!
+  Time breakdown:
+    - BM25 build: 0.00s
+    - BM25 query: 0.00s
+    - Encoding 50 sentences: 0.18s
+    - Total: 0.18s
+  Estimated time saved vs encoding all: 0.51s
+   ✓ Indexing complete (0.26s)
+3. Retrieval (Hybrid)...
+Initializing Retrieval Orchestrator...
+  Index directory: C:\Users\Admin\Documents\HCMUS\GitHub\CS419---FactChecking\data\index
+  ✓ BM25 retriever loaded
+  ✓ Embedding retriever loaded
+  ✓ Metadata handler initialized
+  Weights: Semantic=0.5, Lexical=0.3, Metadata=0.2
+
+   ✓ Retrieved 10 sentences (3.99s)
+4. NLI Inference...
+   ✓ Inference complete (1.49s)
+
+TOP EVIDENCE WITH NLI VERDICT:
+--------------------------------------------------------------------------------
+VERDICT    | CONF   | TEXT (Truncated)                                            
+--------------------------------------------------------------------------------
+[92mSUPPORT   [0m | 0.98   | Vietnam is the second biggest coffee exporter, but wher...
+[92mSUPPORT   [0m | 0.99   | Vietnam (16%) Vietnam is the second-largest coffee prod...
+[91mREFUTE    [0m | 0.97   | However, despite being the world’s largest producer and...
+[93mNEUTRAL   [0m | 0.84   | As per the Vietnam coffee export data, coffee is Vietna...
+[92mSUPPORT   [0m | 0.99   | One of the biggest producers of Robusta coffee beans wo...
+[93mNEUTRAL   [0m | 1.00   | Domestic market emerging as Vietnam’s second growth eng...
+[93mNEUTRAL   [0m | 1.00   | We were told Vietnam is a huge exporter of coffee and y...
+[93mNEUTRAL   [0m | 1.00   | Vietnam’s Import-Export Department reported that in 202...
+[93mNEUTRAL   [0m | 0.95   | This growing appreciation for specialty Robusta offers ...
+[93mNEUTRAL   [0m | 0.98   | However, the European Union (EU) remained the largest m...
+--------------------------------------------------------------------------------
+
+Total Processing Time: 10.14s
+
+
+================================================================================
+CLAIM 2: The Great Wall of China is visible from space with the naked eye
+================================================================================
+
+1. Data Collection...
+
+============================================================
+DATA COLLECTION PIPELINE
+============================================================
+Claim: The Great Wall of China is visible from space with the naked eye
+Target URLs: 5
+
+[1/3] Searching the web...
+      Found 3 URLs
+
+[2/3] Scraping 3 URLs...
+⚡ Concurrent scraping: 3 URLs with 10 workers
+  ✓ [1/3] https://www.nasa.gov/image-article/great-wall/... (353 chars)
+  ✓ [2/3] https://www.wtamu.edu/~cbaird/sq/2012/12/11/what-m... (1223 chars)
+  ✓ [3/3] https://www.skyatnightmagazine.com/space-science/c... (4976 chars)
+
+✓ Successfully scraped 3/3 URLs
+      Successfully scraped 3 documents
+
+[3/3] Preparing corpus...
+      ✓ Saved to: C:\Users\Admin\Documents\HCMUS\GitHub\CS419---FactChecking\data\raw\corpus_The_Great_Wall_of_China_is_visible_from_space_with_20251128_224155.json
+
+============================================================
+COLLECTION COMPLETE
+============================================================
+
+   ✓ Collected 3 docs (1.79s)
+2. Indexing...
+Loading corpus from: C:\Users\Admin\Documents\HCMUS\GitHub\CS419---FactChecking\data\raw\corpus_The_Great_Wall_of_China_is_visible_from_space_with_20251128_224155.json
+Extracted 53 sentences from 3 documents
+
+Filtering 53 sentences...
+   Filtered: 53 → 51 sentences
+   Removed: 2 low-quality/duplicate sentences
+
+🚀 FUNNEL ARCHITECTURE: BM25 filter → Encode top 50 → FAISS
+   Total sentences: 51
+   Claim: The Great Wall of China is visible from space with the naked eye
+
+[1/4] Saving sentence store (ALL sentences)...
+   Saved 51 sentences to sentence_store.pkl (0.00s)
+
+[2/4] Building BM25 Index on ALL 51 sentences (cheap filter)...
+   ✓ BM25 index built and saved (0.00s)
+
+[3/4] Querying BM25 to get Top 50 candidates...
+   ✓ Retrieved top 50 candidates (0.00s)
+   Score range: 9.44 → 0.05
+   ✓ Saved top 50 candidates to top50_candidates.pkl
+
+[4/4] Encoding ONLY Top 50 candidates (expensive operation)...
+   ⚡ Model pre-loaded, encoding only (no initialization overhead)
+   📊 Encoding 50 sentences instead of 51 (1.0x reduction!)
+   ✓ Encoding completed in 0.19s (266.1 sentences/sec)
+   💾 Memory saved: 1 embeddings not created!
+   Saved FAISS index to faiss_index.bin (0.00s)
+
+======================================================================
+✓ FUNNEL ARCHITECTURE COMPLETED SUCCESSFULLY!
+======================================================================
+  Location: C:\Users\Admin\Documents\HCMUS\GitHub\CS419---FactChecking\data\index
+  BM25 index: 51 sentences (cheap filter)
+  FAISS index: 50 embeddings (expensive operation)
+  Efficiency gain: 1.0x less encoding work!
+  Time breakdown:
+    - BM25 build: 0.00s
+    - BM25 query: 0.00s
+    - Encoding 50 sentences: 0.19s
+    - Total: 0.19s
+  Estimated time saved vs encoding all: 0.00s
+   ✓ Indexing complete (0.20s)
+3. Retrieval (Hybrid)...
+Initializing Retrieval Orchestrator...
+  Index directory: C:\Users\Admin\Documents\HCMUS\GitHub\CS419---FactChecking\data\index
+  ✓ BM25 retriever loaded
+  ✓ Embedding retriever loaded
+  ✓ Metadata handler initialized
+  Weights: Semantic=0.5, Lexical=0.3, Metadata=0.2
+
+   ✓ Retrieved 10 sentences (4.01s)
+4. NLI Inference...
+   ✓ Inference complete (1.35s)
+
+TOP EVIDENCE WITH NLI VERDICT:
+--------------------------------------------------------------------------------
+VERDICT    | CONF   | TEXT (Truncated)                                            
+--------------------------------------------------------------------------------
+[91mREFUTE    [0m | 1.00   | Baird, author of The Top 50 Science Questions with Surp...
+[91mREFUTE    [0m | 1.00   | What do you think, is this it?" So while the Great Wall...
+[92mSUPPORT   [0m | 0.67   | What makes the Great Wall of China the only man-made ob...
+[93mNEUTRAL   [0m | 0.89   | Surely, given the International Space Station's positio...
+[93mNEUTRAL   [0m | 0.48   | "No man-made object is visible at this scale." But what...
+[91mREFUTE    [0m | 1.00   | The truth is that the Great Wall of China cannot be see...
+[93mNEUTRAL   [0m | 0.70   | Can we see the Great Wall of China from the ISS?
+[91mREFUTE    [0m | 0.72   | If you slowly zoom in using a space camera, the Houston...
+[91mREFUTE    [0m | 0.84   | However, due to its thinness, the Great Wall of China i...
+[91mREFUTE    [0m | 0.89   | When it comes to spaceflight and astronomy, many myths ...
+--------------------------------------------------------------------------------
+
+Total Processing Time: 7.34s
+
+
+================================================================================
+CLAIM 3: Python is an interpreted programming language
+================================================================================
+
+1. Data Collection...
+
+============================================================
+DATA COLLECTION PIPELINE
+============================================================
+Claim: Python is an interpreted programming language
+Target URLs: 5
+
+[1/3] Searching the web...
+      Found 4 URLs
+
+[2/3] Scraping 4 URLs...
+⚡ Concurrent scraping: 4 URLs with 10 workers
+  ✓ [1/4] https://www.geeksforgeeks.org/python/why-python-is... (7857 chars)
+  ✓ [2/4] https://stackoverflow.com/questions/6889747/is-pyt... (5032 chars)
+  ✓ [3/4] https://discuss.python.org/t/definitions-of-interp... (7324 chars)
+  ✓ [4/4] https://www.reddit.com/r/learnpython/comments/1icf... (1195 chars)
+
+✓ Successfully scraped 4/4 URLs
+      Successfully scraped 4 documents
+
+[3/3] Preparing corpus...
+      ✓ Saved to: C:\Users\Admin\Documents\HCMUS\GitHub\CS419---FactChecking\data\raw\corpus_Python_is_an_interpreted_programming_language_20251128_224202.json
+
+============================================================
+COLLECTION COMPLETE
+============================================================
+
+   ✓ Collected 4 docs (2.10s)
+2. Indexing...
+Loading corpus from: C:\Users\Admin\Documents\HCMUS\GitHub\CS419---FactChecking\data\raw\corpus_Python_is_an_interpreted_programming_language_20251128_224202.json
+Extracted 143 sentences from 4 documents
+
+Filtering 143 sentences...
+   Filtered: 143 → 138 sentences
+   Removed: 5 low-quality/duplicate sentences
+
+🚀 FUNNEL ARCHITECTURE: BM25 filter → Encode top 50 → FAISS
+   Total sentences: 138
+   Claim: Python is an interpreted programming language
+
+[1/4] Saving sentence store (ALL sentences)...
+   Saved 138 sentences to sentence_store.pkl (0.00s)
+
+[2/4] Building BM25 Index on ALL 138 sentences (cheap filter)...
+   ✓ BM25 index built and saved (0.00s)
+
+[3/4] Querying BM25 to get Top 50 candidates...
+   ✓ Retrieved top 50 candidates (0.00s)
+   Score range: 7.41 → 1.38
+   ✓ Saved top 50 candidates to top50_candidates.pkl
+
+[4/4] Encoding ONLY Top 50 candidates (expensive operation)...
+   ⚡ Model pre-loaded, encoding only (no initialization overhead)
+   📊 Encoding 50 sentences instead of 138 (2.8x reduction!)
+   ✓ Encoding completed in 0.22s (231.5 sentences/sec)
+   💾 Memory saved: 88 embeddings not created!
+   Saved FAISS index to faiss_index.bin (0.00s)
+
+======================================================================
+✓ FUNNEL ARCHITECTURE COMPLETED SUCCESSFULLY!
+======================================================================
+  Location: C:\Users\Admin\Documents\HCMUS\GitHub\CS419---FactChecking\data\index
+  BM25 index: 138 sentences (cheap filter)
+  FAISS index: 50 embeddings (expensive operation)
+  Efficiency gain: 2.8x less encoding work!
+  Time breakdown:
+    - BM25 build: 0.00s
+    - BM25 query: 0.00s
+    - Encoding 50 sentences: 0.22s
+    - Total: 0.22s
+  Estimated time saved vs encoding all: 0.38s
+   ✓ Indexing complete (0.27s)
+3. Retrieval (Hybrid)...
+Initializing Retrieval Orchestrator...
+  Index directory: C:\Users\Admin\Documents\HCMUS\GitHub\CS419---FactChecking\data\index
+  ✓ BM25 retriever loaded
+  ✓ Embedding retriever loaded
+  ✓ Metadata handler initialized
+  Weights: Semantic=0.5, Lexical=0.3, Metadata=0.2
+
+   ✓ Retrieved 10 sentences (4.12s)
+4. NLI Inference...
+   ✓ Inference complete (1.02s)
+
+TOP EVIDENCE WITH NLI VERDICT:
+--------------------------------------------------------------------------------
+VERDICT    | CONF   | TEXT (Truncated)                                            
+--------------------------------------------------------------------------------
+[92mSUPPORT   [0m | 0.59   | Understanding what it means to be an "Interpreted Langu...
+[93mNEUTRAL   [0m | 0.88   | Why Python is Called Interpreted Language Last Updated ...
+[93mNEUTRAL   [0m | 0.81   | Python is an Interpreted as well as Compiled language P...
+[92mSUPPORT   [0m | 0.54   | Python is mostly an interpreted language, even though i...
+[92mSUPPORT   [0m | 0.90   | Conclusion In end, Python is known as an interpreted la...
+[92mSUPPORT   [0m | 0.89   | To apprehend why Python is called an interpreted langua...
+[92mSUPPORT   [0m | 0.93   | Python is called an interpreted language because it exe...
+[93mNEUTRAL   [0m | 0.89   | Statement Python is an interpreted language, that's no ...
+[93mNEUTRAL   [0m | 0.64   | Why Python is called Interpreted Language?
+[92mSUPPORT   [0m | 0.91   | Let's explore Python's execution model to understand wh...
+--------------------------------------------------------------------------------
+
+Total Processing Time: 7.51s
+
+

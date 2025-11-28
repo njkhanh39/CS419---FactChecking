@@ -53,7 +53,7 @@ This is a **fact-checking application** built for CS419 - Information Retrieval 
     - Fast model (MiniLM-L6-v2): 4x faster than roberta-large
   - **Memory Savings**: 50 embeddings instead of 890 (17x reduction)
 
-### **Phase 2: NLI Inference** (The Brain)
+### **Phase 2: NLI Inference** (The Brain) ✅ IMPLEMENTED
 - **Location**: `src/nli/`
 - **Purpose**: Determine if sentences support/refute the claim
 - **Flow**: Top 10 sentences → RoBERTa-MNLI → Probabilities (Entailment/Contradiction/Neutral)

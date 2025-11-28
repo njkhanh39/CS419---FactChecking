@@ -1,24 +1,53 @@
-src/nli:  core reasoning engine
+src/nli: Natural Language Inference (Phase 2)
 
-A) nli_model.py: provide a clean, high-level interface (a "wrapper") for the underlying NLI model.
-                 This abstracts away the complexities of working with models from libraries like 
-                 Hugging Face Transformers. It includes:
+This module determines the logical relationship between the user's claim (hypothesis) 
+and the retrieved evidence sentences (premises).
 
-                 +) loads pretrained model:  pre-trained NLI model (e.g., roberta-base-mnli) and its 
-                                             associated tokenizer from a local path or the web.
+CORE COMPONENTS:
 
-                 +) prediction logic: tokenize premise - hypo, forward pass to model, convert to 
-                                      probabilities, then to labels: SUPPORT, REFUTE, NEUTRAL
+A) nli_model.py: The Model Wrapper
+   - Wraps the Hugging Face `FacebookAI/roberta-large-mnli` model.
+   - Handles device management (CUDA/MPS/CPU).
+   - Maps raw model outputs (0, 1, 2) to logical labels:
+     * 0 -> REFUTE (Contradiction)
+     * 1 -> NEUTRAL
+     * 2 -> SUPPORT (Entailment)
 
-B) batch_inference.py: Calling the NLI model in a loop for each of your 10-12 evidence sentences is 
-                       very slow.  This module is responsible for batching them together and 
-                       processing  them all in a single pass
-                    +) It has:
+B) batch_inference.py: The Batch Processor
+   - Main entry point: `run_nli_inference(claim, ranked_evidence)`
+   - USAGE:
+       from src.nli.batch_inference import run_nli_inference
+       
+       ranked_docs = retrieve_top_k(...) # From Phase 1
+       results = run_nli_inference(claim="Vietnam is...", ranked_evidence=ranked_docs)
+   
+   - EFFICIENCY: 
+     Instead of processing sentences 1-by-1, it stacks them into a single tensor 
+     batch. This reduces inference time from ~2s to ~0.3s on CPU (faster on GPU).
 
-                        predict_batch(claim: str, evidence_sentences: list).
+INPUT FORMAT (from Phase 1 Retrieval):
+   List of dicts:
+   [
+       {"text": "Vietnam exports 1.7M tons of coffee...", "doc_id": 1, ...},
+       ...
+   ]
 
-                        --> returns: a list of dictionaries, where each dictionary contains the evidence 
-                                     sentence, its predicted label, and its confidence score.
+OUTPUT FORMAT (Enriched):
+   [
+       {
+           "text": "...",
+           "nli_label": "SUPPORT",       # Best label
+           "nli_confidence": 0.98,       # Probability of best label
+           "nli_probs": {                # Full probability distribution
+               "entailment": 0.98,
+               "contradiction": 0.01,
+               "neutral": 0.01
+           },
+           ... (original keys preserved)
+       }
+   ]
 
-C) onnx_model/: Something related to GPU/CPU optimization. A little confusing, 
-                temporarily left untouched.
+PERFORMANCE TIPS:
+   1. The first run will download the model to C:\Users\Admin\.cache\huggingface (~1.4GB). Subsequent runs use cache.
+   2. Initialization takes time (~5-10s). Always initialize ONCE at startup, 
+      not per-claim.
