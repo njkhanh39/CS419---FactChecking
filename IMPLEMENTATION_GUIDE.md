@@ -91,20 +91,21 @@
 
 ### Implementation Phase:
 
-4. **Complete Existing Modules** (Based on help.txt files)
-   Your team still needs to implement:
-   - ✏️ `src/retrieval/build_index.py` - Index building
-   - ✏️ `src/retrieval/bm25_retriever.py` - BM25 retrieval
-   - ✏️ `src/retrieval/embed_retriever.py` - Semantic retrieval
-   - ✏️ `src/sentence_ranker/split_sentences.py` - Sentence splitting
-   - ✏️ `src/sentence_ranker/rank_sentences.py` - Hybrid ranking
-   - ✏️ `src/sentence_ranker/filters.py` - Entity/metadata filters
-   - ✏️ `src/nli/nli_model.py` - NLI model wrapper
-   - ✏️ `src/nli/batch_inference.py` - Batch NLI inference
-   - ✏️ `src/aggregation/scoring.py` - Score calculation
-   - ✏️ `src/aggregation/voting.py` - Voting aggregation
-   - ✏️ `src/aggregation/final_decision.py` - Final verdict
-   - ✏️ `src/pipeline/fact_check.py` - End-to-end pipeline
+4. **Module Implementation Status**
+   ✅ **Completed Modules:**
+   - ✅ `src/data_collection/` - Complete data collection pipeline
+   - ✅ `src/retrieval/build_index.py` - Index building with funnel architecture
+   - ✅ `src/retrieval/bm25_retriever.py` - BM25 retrieval
+   - ✅ `src/retrieval/embed_retriever.py` - Semantic retrieval
+   - ✅ `src/retrieval/retrieval_orchestrator.py` - Two-stage hybrid ranking
+   - ✅ `src/nli/nli_model.py` - NLI model wrapper (RoBERTa-MNLI)
+   - ✅ `src/nli/batch_inference.py` - Batch NLI inference
+   - ✅ `src/aggregation/scoring.py` - Score calculation
+   - ✅ `src/aggregation/voting.py` - Voting aggregation
+   - ✅ `src/aggregation/final_decision.py` - Final verdict
+   
+   ⏭️ **Still To Implement:**
+   - ✏️ `src/pipeline/fact_check.py` - End-to-end pipeline orchestrator
 
 5. **Integration Points**
    Connect the new data collection module with existing code:
