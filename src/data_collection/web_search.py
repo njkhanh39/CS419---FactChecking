@@ -23,10 +23,32 @@ class WebSearcher:
             api_key: API key for the search service
         """
         self.api_type = api_type.lower()
-        self.api_key = api_key or os.getenv(f"{api_type.upper()}_API_KEY")
+        
+        # Try to get API key from multiple sources (priority order):
+        # 1. Explicitly passed api_key parameter
+        # 2. Import from config file (api_keys.py)
+        # 3. Environment variable
+        if api_key:
+            self.api_key = api_key
+        else:
+            # Try importing from config file first
+            try:
+                if api_type.lower() == "serpapi":
+                    from ..config.api_keys import SERPAPI_KEY
+                    self.api_key = SERPAPI_KEY
+                elif api_type.lower() == "bing":
+                    from ..config.api_keys import BING_API_KEY
+                    self.api_key = BING_API_KEY
+                else:
+                    self.api_key = None
+            except ImportError:
+                # If config file doesn't exist, try environment variable
+                env_var_name = "SERPAPI_KEY" if api_type.lower() == "serpapi" else f"{api_type.upper()}_API_KEY"
+                self.api_key = os.getenv(env_var_name)
         
         if not self.api_key:
-            print(f"Warning: No API key found for {api_type}. Set {api_type.upper()}_API_KEY environment variable.")
+            env_var_name = "SERPAPI_KEY" if api_type.lower() == "serpapi" else f"{api_type.upper()}_API_KEY"
+            print(f"Warning: No API key found for {api_type}. Set {env_var_name} environment variable or configure in src/config/api_keys.py")
     
     def generate_search_queries(self, claim: str, num_variations: int = 1) -> List[str]:
         """
