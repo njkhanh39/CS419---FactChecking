@@ -36,4 +36,16 @@ pathlib
 tqdm  # Progress bars
 regex  # Advanced regex patterns for emoji filtering
 
-# -------------- 
+# --- Frontend and Deployment ---
+streamlit
+streamlit-chat
+flask
+sseclient-py  # For Server-Sent Events in frontend
+
+# --- FastAPI for building APIs ---
+fastapi
+uvicorn
+pydantic
+sse-starlette  # Server-Sent Events for real-time updates
+
+# -----------

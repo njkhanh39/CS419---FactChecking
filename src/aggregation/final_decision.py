@@ -181,13 +181,36 @@ def make_final_decision(
         return make_final_decision(nli_results, method='hybrid', score_threshold=score_threshold,
                                   confidence_threshold=confidence_threshold, min_evidence=min_evidence)
     
-    # ========== STEP 4: Select Top Evidence ==========
-    # Sort by combined score (retrieval) and NLI confidence
-    sorted_evidence = sorted(
-        scored_evidence,
-        key=lambda x: x.get('combined_score', 0) * x.get('nli_confidence', 0),
-        reverse=True
-    )
+    # ========== STEP 4: Select Top Evidence (Verdict-Aware) ==========
+    # Select evidence based on the verdict to show most relevant supporting/refuting evidence
+    
+    if verdict == 'SUPPORTED':
+        # Show SUPPORT evidence first, sorted by confidence
+        support_evidence = [e for e in scored_evidence if e['nli_label'] == 'SUPPORT']
+        other_evidence = [e for e in scored_evidence if e['nli_label'] != 'SUPPORT']
+        
+        support_evidence.sort(key=lambda x: x.get('nli_confidence', 0) * x.get('combined_score', 0), reverse=True)
+        other_evidence.sort(key=lambda x: x.get('nli_confidence', 0) * x.get('combined_score', 0), reverse=True)
+        
+        sorted_evidence = support_evidence + other_evidence
+        
+    elif verdict == 'REFUTED':
+        # Show REFUTE evidence first, sorted by confidence
+        refute_evidence = [e for e in scored_evidence if e['nli_label'] == 'REFUTE']
+        other_evidence = [e for e in scored_evidence if e['nli_label'] != 'REFUTE']
+        
+        refute_evidence.sort(key=lambda x: x.get('nli_confidence', 0) * x.get('combined_score', 0), reverse=True)
+        other_evidence.sort(key=lambda x: x.get('nli_confidence', 0) * x.get('combined_score', 0), reverse=True)
+        
+        sorted_evidence = refute_evidence + other_evidence
+        
+    else:
+        # NOT ENOUGH INFO: Sort by overall relevance
+        sorted_evidence = sorted(
+            scored_evidence,
+            key=lambda x: x.get('combined_score', 0) * x.get('nli_confidence', 0),
+            reverse=True
+        )
     
     top_evidence = []
     for item in sorted_evidence[:5]:  # Top 5
@@ -196,7 +219,9 @@ def make_final_decision(
             'label': item['nli_label'],
             'confidence': item['nli_confidence'],
             'retrieval_score': item.get('combined_score', 0),
-            'source': item.get('doc_url', 'Unknown')
+            'source': item.get('doc_url', 'Unknown'),
+            'doc_domain': item.get('doc_domain', 'Unknown'),
+            'score': item.get('evidence_score', 0)  # Numerical score for sorting
         })
     
     # ========== STEP 5: Compile Final Result ==========
