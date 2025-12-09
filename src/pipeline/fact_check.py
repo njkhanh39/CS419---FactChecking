@@ -124,8 +124,22 @@ class FactChecker:
         
         # ========== PHASE 3: NLI ==========
         if self.verbose:
-            print("\n[Phase 3] NLI Inference")
-            print("  ⏳ Model will be loaded on first use (singleton pattern)")
+            print("\n[Phase 3] Initializing NLI Model...")
+        
+        try:
+            # Pre-load NLI model during initialization to avoid delay during inference
+            from src.nli.batch_inference import get_model_instance
+            import time
+            nli_start = time.time()
+            self.nli_model = get_model_instance()
+            nli_time = time.time() - nli_start
+            if self.verbose:
+                print(f"  ✓ NLI model loaded and ready ({nli_time:.2f}s)")
+        except Exception as e:
+            logger.error(f"Failed to pre-load NLI model: {e}")
+            if self.verbose:
+                print("  ⚠️  NLI model will be loaded on first use")
+            self.nli_model = None
         
         # ========== PHASE 4: Aggregation ==========
         if self.verbose:
@@ -210,7 +224,8 @@ class FactChecker:
             result['phase0'] = {
                 'time': phase0_time,
                 'num_documents': len(corpus['corpus']),
-                'corpus_file': corpus.get('metadata', {}).get('corpus_file', None)
+                'corpus_file': corpus.get('metadata', {}).get('corpus_file', None),
+                'urls': [doc.get('url', '') for doc in corpus['corpus']]
             }
             
             if self.verbose:
@@ -300,7 +315,15 @@ class FactChecker:
             
             result['phase2'] = {
                 'time': phase2_time,
-                'num_evidence': len(ranked_evidence)
+                'num_evidence': len(ranked_evidence),
+                'retrieved_sentences': [
+                    {
+                        'text': ev.get('text', ''),
+                        'score': ev.get('combined_score', 0),
+                        'source': ev.get('doc_url', '')
+                    }
+                    for ev in ranked_evidence[:5]  # Top 5 for display
+                ]
             }
             
             if self.verbose:
@@ -375,6 +398,7 @@ class FactChecker:
                 'scores': verdict['scores'],
                 'voting': verdict['voting'],
                 'top_evidence': verdict['top_evidence'],
+                'all_evidence': nli_results,  # Include all NLI results
                 'phase_times': {
                     'phase0_collection': phase0_time,
                     'phase1_indexing': phase1_time,

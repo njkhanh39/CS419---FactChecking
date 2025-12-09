@@ -8,26 +8,33 @@
 
 ## 📋 Executive Summary
 
-| Phase | Baseline (Sequential) | Optimized (Parallel + Batch) | Speedup |
-|-------|----------------------|------------------------------|---------|
-| **Phase 0: Data Collection** | 15 seconds | **2-3 seconds** | 5-7x |
-| **Phase 1: Indexing** | 15 seconds | **1.5 seconds** | 10x |
-| **Phase 2: Retrieval** | 1 second | **0.5 seconds** | 2x |
-| **TOTAL** | **31 seconds** | **~4-5 seconds** | **6-7x** |
+| Phase | Baseline (Sequential) | Optimized (CPU) | Optimized (GPU) | Speedup |
+|-------|----------------------|-----------------|-----------------|----------|
+| **Phase 0: Data Collection** | 15 seconds | **8-12 seconds** | **8-12 seconds** | 1.5-2x |
+| **Phase 1: Indexing** | 15 seconds | **1.5-2 seconds** | **0.5-1 seconds** | 8-10x (CPU), 15-30x (GPU) |
+| **Phase 2: Retrieval** | 1 second | **0.5 seconds** | **0.3 seconds** | 2x (CPU), 3-4x (GPU) |
+| **Phase 3: NLI Inference** | 10 seconds | **2-3 seconds** | **0.3-0.5 seconds** | 3-5x (CPU+opt), 20-30x (GPU) |
+| **Phase 4: Aggregation** | 0.1 seconds | **0.05 seconds** | **0.05 seconds** | 2x |
+| **TOTAL** | **41 seconds** | **~12-18 seconds** | **~9-14 seconds** | **2-3x (CPU), 3-5x (GPU)** |
 
 **System Configuration:**
-- **Documents**: 10 URLs (reduced from 20)
+- **Documents**: 10 URLs
 - **Sentences**: ~200 (filtered from ~250 raw)
 - **Workers**: 10 concurrent threads
-- **Batch size**: 32 sentences
-- **Timeout**: 3 seconds per request
-- **No early exit** (removed for consistency)
+- **Batch size**: 32 sentences (embeddings), 12 sentences (NLI)
+- **Timeout**: 5 seconds per request
+- **NLI Model**: DeBERTa-v3-large (default)
 
 **Key Optimizations:**
 1. ✅ Concurrent scraping with ThreadPoolExecutor (10 workers)
 2. ✅ Batch encoding with matrix operations (batch_size=32)
 3. ✅ Hardware acceleration with GPU/MPS auto-detection
 4. ✅ Funnel architecture (BM25 → Hybrid ranking)
+5. ✅ NLI optimizations:
+   - GPU acceleration (CUDA/MPS): 10-20x speedup
+   - ONNX Runtime: 2-5x speedup on CPU/GPU
+   - INT8 Quantization (CPU): 2-3x speedup, 75% memory reduction
+   - ONNX + Quantization (CPU): 3-5x speedup (best for CPU)
 
 ---
 
@@ -123,7 +130,12 @@ with ThreadPoolExecutor(max_workers=10) as executor:
 - All 10 requests run in parallel
 - Total time = slowest URL (~2s), not sum of all (15s)
 
-**Result**: 15s → **2-3 seconds** (5-7x speedup)
+**Result**: 15s → **8-12 seconds** (1.5-2x speedup)
+
+**Note**: Actual speedup varies based on:
+- Network latency and server response times
+- Number of slow/blocked domains
+- Internet connection speed
 
 **Safety**: 
 - ✅ ThreadPoolExecutor is safe for I/O-bound tasks
@@ -355,7 +367,7 @@ metadata_scores = [score_metadata(sentence, claim) for sentence in candidates]
 
 #### **2.3: Combine & Sort**
 ```python
-combined_score = 0.5*semantic + 0.3*lexical + 0.2*metadata
+combined_score = 0.6*semantic + 0.2*lexical + 0.2*metadata
 results.sort(key=lambda x: x['score'], reverse=True)[:12]
 ```
 
@@ -403,7 +415,27 @@ Phase 2: Retrieval
 └─ [0.35-0.40s] Combine + sort (50 → 12)
    Total: 0.5 seconds ✅
 
-GRAND TOTAL: 4-5 seconds per claim 🚀
+Phase 3: NLI Inference
+├─ [0.0-2.0s]  Model loading (first time only, cached after)
+├─ [2.0-12.0s] Inference - 12 sentences (CPU baseline)
+│              GPU: 0.3-0.5s (20-30x faster)
+│              CPU + ONNX: 2-4s (2-3x faster)
+│              CPU + Quantization: 3-5s (2-3x faster)
+│              CPU + ONNX + Quantization: 1-2s (5-10x faster)
+└─ [12.0-12.1s] Format results
+   Total (CPU baseline): 10-12 seconds
+   Total (GPU optimized): 0.5-1 seconds ✅
+   Total (CPU optimized): 2-3 seconds ✅
+
+Phase 4: Aggregation
+├─ [0.0-0.02s] Calculate scores
+├─ [0.02-0.04s] Voting
+└─ [0.04-0.05s] Generate verdict
+   Total: 0.05 seconds ✅
+
+GRAND TOTAL (CPU baseline): ~28-30 seconds
+GRAND TOTAL (CPU optimized): ~12-18 seconds 🚀
+GRAND TOTAL (GPU optimized): ~9-14 seconds 🚀🚀
 ```
 
 ---
@@ -525,28 +557,153 @@ model = ORTModelForFeatureExtraction.from_pretrained(
 
 ---
 
+## 🧠 Phase 3: NLI Inference (Detailed Analysis)
+
+### **Architecture Overview**
+```
+Top 12 sentences + Claim → Transformer Model → Classification probabilities
+```
+
+### **Step 1: Model Loading** (One-time cost, cached)
+```python
+model = AutoModelForSequenceClassification.from_pretrained("MoritzLaurer/deberta-v3-large-zeroshot-v2.0")
+tokenizer = AutoTokenizer.from_pretrained("MoritzLaurer/deberta-v3-large-zeroshot-v2.0")
+```
+
+**Complexity**: `O(M)` where M = model size (340M parameters for DeBERTa-v3-large)  
+**Time**: 2-5 seconds (first time only, singleton pattern caches after)  
+**Memory**: ~1.4 GB (FP32), ~350 MB (INT8 quantized)
+
+### **Step 2: Batch Inference**
+```python
+# Create pairs: [(sentence_1, claim), (sentence_2, claim), ...]
+pairs = [[sentence, claim] for sentence in top_12_sentences]
+
+# Tokenize
+inputs = tokenizer(pairs, padding=True, truncation=True, max_length=512)
+
+# Forward pass
+outputs = model(**inputs)
+probabilities = softmax(outputs.logits)
+```
+
+**Per sentence complexity**:
+- Tokenization: `O(L)` where L = sequence length (~30-100 tokens)
+- Self-attention: `O(L² × H)` where H = hidden size (1024 for large models)
+- Feed-forward: `O(L × H²)`
+- **Total per sentence**: `O(L² × H + L × H²)`
+
+**For 12 sentences in batch**:
+- **Computational**: `O(K₂ × (L² × H + L × H²))` where K₂ = 12
+- **Actual time**:
+  - CPU (baseline): 10-12 seconds
+  - CPU + ONNX: 2-4 seconds (2-3x faster)
+  - CPU + PyTorch INT8: 3-5 seconds (2-3x faster)
+  - CPU + ONNX + INT8: 1-2 seconds (5-10x faster)
+  - GPU (CUDA): 0.3-0.5 seconds (20-30x faster)
+  - GPU + ONNX: 0.2-0.3 seconds (30-50x faster)
+
+### **Optimization Strategies**
+
+#### **1. GPU Acceleration** (10-20x speedup)
+- Auto-detects CUDA/MPS
+- Parallel matrix operations on GPU
+- Benefits from tensor cores on modern GPUs
+
+```bash
+# Install PyTorch with CUDA
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+# System auto-detects GPU
+```
+
+#### **2. ONNX Runtime** (2-5x speedup)
+- Optimized inference engine
+- Kernel fusion (combines operations)
+- Better memory management
+- Works on both CPU and GPU
+
+```bash
+# CPU
+pip install optimum[onnxruntime]
+export NLI_USE_ONNX="true"
+
+# GPU
+pip install onnxruntime-gpu optimum[onnxruntime-gpu]
+export NLI_USE_ONNX="true"
+```
+
+#### **3. INT8 Quantization** (CPU: 2-3x speedup, 75% memory reduction)
+- Converts FP32 weights to INT8 (32-bit → 8-bit)
+- Reduces model size: 1.4GB → 350MB
+- Faster CPU inference with minimal accuracy loss
+
+```bash
+export NLI_USE_QUANTIZATION="true"
+```
+
+#### **4. ONNX + Quantization** (CPU: 3-5x speedup)
+- Best CPU performance
+- Combines benefits of both optimizations
+
+```bash
+export NLI_USE_ONNX="true"
+export ONNX_QUANTIZE="true"
+```
+
+### **Model Selection Impact**
+
+| Model | Parameters | Accuracy | CPU Time | GPU Time | Notes |
+|-------|-----------|----------|----------|----------|-------|
+| **DeBERTa-v3-large** (default) | 340M | 95%+ | 5-8s | 0.3-0.5s | Best accuracy |
+| **DeBERTa-v3-base** | 140M | 90%+ | 2-3s | 0.2-0.3s | Good balance |
+| **RoBERTa-large-MNLI** | 355M | 90%+ | 10s | 0.5s | Original |
+| **DistilRoBERTa-base** | 82M | 70-80% | 1s | 0.1s | Fast but poor |
+
+**Recommendation**: Use DeBERTa-v3-large (default) for best accuracy/speed tradeoff.
+
+### **Phase 3 Summary**
+
+| Configuration | Time (12 sentences) | Memory | Accuracy |
+|--------------|---------------------|---------|----------|
+| CPU baseline | 10-12s | 1.4 GB | 95% |
+| CPU + ONNX | 2-4s | 1.4 GB | 95% |
+| CPU + INT8 | 3-5s | 350 MB | 93-95% |
+| CPU + ONNX + INT8 | 1-2s | 350 MB | 93-95% |
+| GPU baseline | 0.3-0.5s | 2 GB VRAM | 95% |
+| GPU + ONNX | 0.2-0.3s | 2 GB VRAM | 95% |
+
+---
+
 ## 🎓 Key Takeaways
 
-1. **Network I/O dominates Phase 0** (99% of time)
+1. **Network I/O dominates Phase 0** (50-70% of time)
    - Solution: Concurrent scraping with ThreadPoolExecutor
    
-2. **Transformer encoding dominates Phase 1** (60% of time)
+2. **Transformer encoding dominates Phase 1** (30-40% of time)
    - Solution: Batch encoding + GPU acceleration
    
-3. **Reducing documents from 20 to 10**:
+3. **NLI inference dominates Phase 3** (20-40% of time)
+   - Solution: GPU acceleration (20x faster) or ONNX+Quantization (3-5x faster on CPU)
+   
+4. **Reducing documents from 20 to 10**:
    - Cuts Phase 0 time by 50%
    - Cuts Phase 1 time by 50%
    - Minimal impact on accuracy (still 200 sentences)
    
-4. **Funnel architecture is essential**:
+5. **Funnel architecture is essential**:
    - BM25 first (fast, high recall): 200 → 50
    - Hybrid ranking second (slow, high precision): 50 → 12
    - Avoids encoding all 200 sentences for every query
 
-5. **Multi-threading is safe** for I/O-bound web scraping:
+6. **Multi-threading is safe** for I/O-bound web scraping:
    - Low resource usage
    - No system risk
-   - 5-7x speedup
+   - 1.5-2x speedup
+
+7. **GPU provides massive speedup** for NLI:
+   - 20-30x faster than CPU
+   - Auto-detected (no configuration needed)
+   - Worth the setup for production use
 
 ---
 

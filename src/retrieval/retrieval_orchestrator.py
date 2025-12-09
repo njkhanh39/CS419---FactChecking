@@ -3,7 +3,7 @@
 This orchestrates Phase 1 (Indexing & Retrieval) with hybrid ranking:
 - Stage 1 (BM25): Fast candidate generation → Top 50 sentences (high recall)
 - Stage 2 (Hybrid): Precise reranking → Top 10-12 sentences (high precision)
-  - Combines: 0.5×Semantic + 0.3×Lexical + 0.2×Metadata
+  - Combines: 0.6×Semantic + 0.2×Lexical + 0.2×Metadata
 
 Usage:
     from src.retrieval.retrieval_orchestrator import RetrievalOrchestrator

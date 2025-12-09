@@ -98,8 +98,12 @@
    - ✅ `src/retrieval/bm25_retriever.py` - BM25 retrieval
    - ✅ `src/retrieval/embed_retriever.py` - Semantic retrieval
    - ✅ `src/retrieval/retrieval_orchestrator.py` - Two-stage hybrid ranking
-   - ✅ `src/nli/nli_model.py` - NLI model wrapper (RoBERTa-MNLI)
-   - ✅ `src/nli/batch_inference.py` - Batch NLI inference
+   - ✅ `src/nli/nli_model.py` - NLI model wrapper (DeBERTa-v3, RoBERTa-MNLI)
+     - GPU acceleration support (CUDA, MPS)
+     - ONNX Runtime optimization (2-5x speedup)
+     - INT8 quantization (CPU: 2-3x faster, 75% memory reduction)
+     - ONNX quantization (CPU: 3-5x speedup, best for CPU)
+   - ✅ `src/nli/batch_inference.py` - Batch NLI inference with singleton pattern
    - ✅ `src/aggregation/scoring.py` - Score calculation
    - ✅ `src/aggregation/voting.py` - Voting aggregation
    - ✅ `src/aggregation/final_decision.py` - Final verdict
@@ -128,7 +132,45 @@
        # (retrieval → ranking → NLI → aggregation)
    ```
 
-6. **Incorporate Metadata Scoring**
+6. **Configure NLI Optimizations**
+   
+   **For GPU users** (10-20x speedup):
+   ```bash
+   # Install PyTorch with CUDA
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+   
+   # Optional: ONNX GPU for maximum speed
+   pip install onnxruntime-gpu optimum[onnxruntime-gpu]
+   export NLI_USE_ONNX="true"
+   ```
+   
+   **For CPU users** (2-5x speedup):
+   ```bash
+   # Option 1: ONNX Runtime
+   pip install optimum[onnxruntime]
+   export NLI_USE_ONNX="true"
+   
+   # Option 2: PyTorch INT8 Quantization
+   export NLI_USE_QUANTIZATION="true"
+   
+   # Option 3: ONNX with quantization (fastest)
+   export NLI_USE_ONNX="true"
+   export ONNX_QUANTIZE="true"
+   ```
+   
+   **Model selection**:
+   ```bash
+   # Best accuracy (default)
+   export NLI_MODEL_NAME="MoritzLaurer/deberta-v3-large-zeroshot-v2.0"
+   
+   # Faster but slightly less accurate
+   export NLI_MODEL_NAME="microsoft/deberta-v3-base"
+   
+   # Original model
+   export NLI_MODEL_NAME="FacebookAI/roberta-large-mnli"
+   ```
+
+7. **Incorporate Metadata Scoring**
    Update `rank_sentences.py` to use metadata:
    
    ```python
@@ -144,9 +186,9 @@
            # Calculate metadata score (NEW)
            metadata_scores = self.metadata_handler.calculate_metadata_score(...)
            
-           # Combined: 0.5*semantic + 0.3*lexical + 0.2*metadata
-           final_score = (0.5 * semantic + 
-                         0.3 * lexical + 
+           # Combined: 0.6*semantic + 0.2*lexical + 0.2*metadata
+           final_score = (0.6 * semantic + 
+                          0.2 * lexical +
                          0.2 * metadata_scores['combined'])
    ```
 

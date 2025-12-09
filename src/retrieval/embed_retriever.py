@@ -39,7 +39,17 @@ class EmbeddingRetriever:
         """
         self.index_dir = index_dir
         self.model_name = model_name
-        self.model = SentenceTransformer(model_name)
+        
+        # Auto-detect device and load model on GPU if available
+        import torch
+        if torch.cuda.is_available():
+            device = 'cuda'
+            print(f"💻 Using GPU: {torch.cuda.get_device_name(0)}")
+        else:
+            device = 'cpu'
+            print("💻 Using CPU")
+        
+        self.model = SentenceTransformer(model_name, device=device)
         self.index = self._load_faiss()
         self.sentence_store = self._load_sentence_store()
         self.top_candidates_map = self._load_top_candidates()  # Map FAISS indices to sentence IDs

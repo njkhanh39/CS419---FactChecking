@@ -17,10 +17,10 @@ This is a **fact-checking application** built for CS419 - Information Retrieval 
 - **Output**: `data/raw/corpus_*.json` with 10 documents + metadata
 - **⚡ Performance**: 
   - **Baseline**: ~15s (sequential scraping, 10 docs)
-  - **Optimized**: ~2-3s (parallel scraping with ThreadPoolExecutor)
+  - **Optimized**: ~8-12s (parallel scraping with ThreadPoolExecutor)
   - **Key Optimizations**:
-    - Concurrent execution (10 workers): 5-7x speedup
-    - Strict timeouts (3s): Prevents blocking on slow sites
+    - Concurrent execution (10 workers): 2-3x speedup
+    - Strict timeouts (5s): Prevents blocking on slow sites
     - Text-only headers: 20% bandwidth reduction
   - **Multi-threading Safety**: ✅ Safe - low overhead, no system risk
 
@@ -37,7 +37,7 @@ This is a **fact-checking application** built for CS419 - Information Retrieval 
   - `retrieval_orchestrator.py` - Complete two-stage funnel orchestrator
 - **Hybrid Ranking Formula**: 
   ```
-  Score = 0.5 × Semantic + 0.3 × Lexical (BM25) + 0.2 × Metadata
+  Score = 0.6 × Semantic + 0.2 × Lexical (BM25) + 0.2 × Metadata
   ```
 - **Metadata Components** (from `utils/metadata.py`):
   - Recency (date proximity)
@@ -56,12 +56,33 @@ This is a **fact-checking application** built for CS419 - Information Retrieval 
 ### **Phase 2: NLI Inference** (The Brain) ✅ IMPLEMENTED
 - **Location**: `src/nli/`
 - **Purpose**: Determine if sentences support/refute the claim
-- **Flow**: Top 10 sentences → RoBERTa-MNLI → Probabilities (Entailment/Contradiction/Neutral)
+- **Flow**: Top 12 sentences → NLI Model → Probabilities (Entailment/Contradiction/Neutral)
 - **Key Files**:
-  - `nli_model.py` - RoBERTa-MNLI wrapper
+  - `nli_model.py` - NLI model wrapper with optimization support
   - `batch_inference.py` - Batch processing for efficiency
-- **Model**: `roberta-large-mnli` or `roberta-base-mnli`
-- **Output**: For each sentence → {label: "SUPPORT/REFUTE/NEUTRAL", confidence: 0.0-1.0}
+- **Models** (tested):
+  1. **RoBERTa-large-MNLI** (RECOMMENDED): `FacebookAI/roberta-large-mnli`
+     - ✅ **Status**: Works correctly with 3-class NLI
+     - Accuracy: ~90% on MNLI benchmark
+     - Speed: 0.5s per batch (GPU), 10s (CPU), 3-5s (CPU + INT8)
+     - **Limitation**: Weak numerical reasoning (see NLI_MODEL_LIMITATIONS.md)
+  2. ❌ **DeBERTa-v3-large-zeroshot**: `MoritzLaurer/deberta-v3-large-zeroshot-v2.0`
+     - **Status**: BROKEN - Zero-shot model (2 labels instead of 3)
+     - Error: "index 2 is out of bounds for axis 0 with size 2"
+  3. ❌ **DeBERTa-v3-base**: `microsoft/deberta-v3-base`
+     - **Status**: BROKEN - Tokenizer conversion failure
+     - Error: "Converting from SentencePiece failed"
+- **Optimizations**:
+  - **GPU Acceleration**: Auto-detects CUDA/MPS (10-20x faster)
+  - **INT8 Quantization**: CPU-only, 2-3x faster, 75% memory reduction, ~1-2% accuracy loss
+  - **ONNX Runtime**: Not recommended (slow cache loading, unstable)
+- **Recommended Configuration** (CPU):
+  ```bash
+  export NLI_MODEL_NAME="FacebookAI/roberta-large-mnli"
+  export NLI_USE_QUANTIZATION="true"  # Enable INT8 for 2-3x speedup
+  export NLI_USE_ONNX="false"         # Disable ONNX (PyTorch faster with INT8)
+  ```
+- **Output**: For each sentence → {label: "SUPPORT/REFUTE/NEUTRAL", confidence: 0.0-1.0, probabilities: {...}}
 
 ### **Phase 3: Aggregation & Verdict**
 - **Location**: `src/aggregation/`
@@ -289,7 +310,7 @@ Output:
 3. Get BM25 scores from `bm25_retriever.py` (lexical)
 4. Get semantic scores from `embed_retriever.py` (cosine similarity)
 5. Get metadata scores from `MetadataHandler`
-6. Combine with weights: 0.5 (semantic), 0.3 (lexical), 0.2 (metadata)
+6. Combine with weights: 0.6 (semantic), 0.2 (lexical), 0.2 (metadata)
 7. Return top-k sentences
 
 ### Task: Implement NLI Module

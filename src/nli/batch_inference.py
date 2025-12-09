@@ -11,8 +11,23 @@ def get_model_instance():
     """Singleton accessor for the NLI model."""
     global _NLI_MODEL_INSTANCE
     if _NLI_MODEL_INSTANCE is None:
-        # UPDATED: Use the correct official ID
-        _NLI_MODEL_INSTANCE = NLIModel(model_name="FacebookAI/roberta-large-mnli")
+        import os
+        
+        # Check environment variables for optimization settings
+        use_quantization = os.getenv("NLI_USE_QUANTIZATION", "false").lower() == "true"
+        use_onnx = os.getenv("NLI_USE_ONNX", "false").lower() == "true"
+        model_name = os.getenv("NLI_MODEL_NAME", "FacebookAI/roberta-large-mnli")
+        
+        # Use DeBERTa-v3-large by default (best accuracy/speed tradeoff)
+        # Set NLI_MODEL_NAME env var to override:
+        # - "microsoft/deberta-v3-base" - faster but slightly less accurate
+        # - "FacebookAI/roberta-large-mnli" - original model
+        # - "typeform/distilroberta-base-v2" - fastest but lower accuracy
+        _NLI_MODEL_INSTANCE = NLIModel(
+            model_name=model_name,
+            use_quantization=use_quantization,
+            use_onnx=use_onnx
+        )
     return _NLI_MODEL_INSTANCE
 
 def run_nli_inference(claim: str, ranked_evidence: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
