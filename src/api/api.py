@@ -155,6 +155,17 @@ async def check_claim_stream(request: ClaimRequest):
             
             phase1_start = time.time()
             corpus_file = corpus.get('metadata', {}).get('corpus_file')
+            
+            if not corpus_file:
+                yield {
+                    "event": "error",
+                    "data": json.dumps({
+                        "message": "Corpus file path is missing from metadata",
+                        "phase": 1
+                    })
+                }
+                return
+            
             # Run blocking operation in thread pool
             await loop.run_in_executor(
                 executor,

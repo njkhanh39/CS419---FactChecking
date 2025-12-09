@@ -123,6 +123,8 @@ class DataCollector:
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(corpus, f, indent=2, ensure_ascii=False)
             
+            # Add corpus_file path to metadata
+            corpus['metadata']['corpus_file'] = str(filepath)
             print(f"      ✓ Saved to: {filepath}")
         
         print(f"\n{'='*60}")
