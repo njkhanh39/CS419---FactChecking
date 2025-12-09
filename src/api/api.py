@@ -7,7 +7,10 @@ from sse_starlette.sse import EventSourceResponse
 import uvicorn
 import asyncio
 import json
+import time
 from typing import AsyncGenerator
+from concurrent.futures import ThreadPoolExecutor
+import functools
 
 # Define the data format coming from the frontend
 class ClaimRequest(BaseModel):
@@ -57,6 +60,10 @@ async def check_claim_stream(request: ClaimRequest):
     """
     Streaming endpoint that sends real-time progress updates via Server-Sent Events (SSE)
     """
+    # Create thread pool executor for blocking operations
+    executor = ThreadPoolExecutor(max_workers=1)
+    loop = asyncio.get_event_loop()
+    
     async def event_generator() -> AsyncGenerator[dict, None]:
         try:
             claim = request.claim
@@ -72,14 +79,12 @@ async def check_claim_stream(request: ClaimRequest):
                     "progress": 0
                 })
             }
-            await asyncio.sleep(0.1)
             
             # Import required modules
             from src.data_collection import DataCollector
             from src.retrieval import IndexBuilder, RetrievalOrchestrator
             from src.nli.batch_inference import run_nli_inference
             from src.aggregation.final_decision import make_final_decision
-            import time
             
             result = {
                 'claim': claim,
@@ -100,14 +105,18 @@ async def check_claim_stream(request: ClaimRequest):
                     "progress": 10
                 })
             }
-            await asyncio.sleep(0.1)
             
             phase0_start = time.time()
-            corpus = checker.data_collector.collect_corpus(claim, num_urls=num_urls, save=True)
+            # Run blocking operation in thread pool
+            corpus = await loop.run_in_executor(
+                executor,
+                functools.partial(checker.data_collector.collect_corpus, claim, num_urls=num_urls, save=True)
+            )
             phase0_time = time.time() - phase0_start
             
             if corpus and corpus.get('corpus'):
-                urls = [doc.get('url', '') for doc in corpus['corpus']]
+                # Filter out None URLs
+                urls = [doc.get('url', '') for doc in corpus['corpus'] if doc.get('url')]
                 yield {
                     "event": "phase_complete",
                     "data": json.dumps({
@@ -133,8 +142,6 @@ async def check_claim_stream(request: ClaimRequest):
                 }
                 return
             
-            await asyncio.sleep(0.1)
-            
             # Phase 1: Indexing
             yield {
                 "event": "phase",
@@ -145,11 +152,14 @@ async def check_claim_stream(request: ClaimRequest):
                     "progress": 35
                 })
             }
-            await asyncio.sleep(0.1)
             
             phase1_start = time.time()
             corpus_file = corpus.get('metadata', {}).get('corpus_file')
-            checker.index_builder.build_from_corpus_file(corpus_file, claim)
+            # Run blocking operation in thread pool
+            await loop.run_in_executor(
+                executor,
+                functools.partial(checker.index_builder.build_from_corpus_file, corpus_file, claim)
+            )
             phase1_time = time.time() - phase1_start
             
             yield {
@@ -162,8 +172,6 @@ async def check_claim_stream(request: ClaimRequest):
                 })
             }
             result['phase1'] = {'time': phase1_time}
-            
-            await asyncio.sleep(0.1)
             
             # Initialize orchestrator
             if checker.retrieval_orchestrator is None:
@@ -181,11 +189,12 @@ async def check_claim_stream(request: ClaimRequest):
                     "progress": 55
                 })
             }
-            await asyncio.sleep(0.1)
             
             phase2_start = time.time()
-            ranked_evidence = checker.retrieval_orchestrator.retrieve_and_rank(
-                claim=claim, top_k=top_k, verbose=False
+            # Run blocking operation in thread pool
+            ranked_evidence = await loop.run_in_executor(
+                executor,
+                functools.partial(checker.retrieval_orchestrator.retrieve_and_rank, claim=claim, top_k=top_k, verbose=False)
             )
             phase2_time = time.time() - phase2_start
             
@@ -215,8 +224,6 @@ async def check_claim_stream(request: ClaimRequest):
                 }
                 return
             
-            await asyncio.sleep(0.1)
-            
             # Phase 3: NLI Inference
             yield {
                 "event": "phase",
@@ -227,10 +234,12 @@ async def check_claim_stream(request: ClaimRequest):
                     "progress": 70
                 })
             }
-            await asyncio.sleep(0.1)
             
             phase3_start = time.time()
-            nli_results = run_nli_inference(claim, ranked_evidence)
+            nli_results = await loop.run_in_executor(
+                executor,
+                functools.partial(run_nli_inference, claim, ranked_evidence)
+            )
             phase3_time = time.time() - phase3_start
             
             if nli_results:
@@ -263,8 +272,6 @@ async def check_claim_stream(request: ClaimRequest):
                 }
                 return
             
-            await asyncio.sleep(0.1)
-            
             # Phase 4: Aggregation
             yield {
                 "event": "phase",
@@ -275,10 +282,12 @@ async def check_claim_stream(request: ClaimRequest):
                     "progress": 90
                 })
             }
-            await asyncio.sleep(0.1)
             
             phase4_start = time.time()
-            verdict = make_final_decision(nli_results, method='hybrid')
+            verdict = await loop.run_in_executor(
+                executor,
+                functools.partial(make_final_decision, nli_results, method='hybrid')
+            )
             phase4_time = time.time() - phase4_start
             
             result['phase4'] = {'time': phase4_time}
