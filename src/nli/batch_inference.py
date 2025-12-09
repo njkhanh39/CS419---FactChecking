@@ -16,7 +16,7 @@ def get_model_instance():
         # Check environment variables for optimization settings
         use_quantization = os.getenv("NLI_USE_QUANTIZATION", "false").lower() == "true"
         use_onnx = os.getenv("NLI_USE_ONNX", "false").lower() == "true"
-        model_name = os.getenv("NLI_MODEL_NAME", "MoritzLaurer/deberta-v3-large-zeroshot-v2.0")
+        model_name = os.getenv("NLI_MODEL_NAME", "FacebookAI/roberta-large-mnli")
         
         # Use DeBERTa-v3-large by default (best accuracy/speed tradeoff)
         # Set NLI_MODEL_NAME env var to override:

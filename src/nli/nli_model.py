@@ -76,7 +76,7 @@ class NLIModel:
                     logger.info("  ✓ INT8 quantization applied (4x smaller, 2-3x faster)")
                 
                 self.model.to(self.device)
-                self.model.eval() # Set to evaluation mode
+                self.model.eval()  # Set to evaluation mode (PyTorch only)
             
             logger.info("Model loaded successfully.")
         except Exception as e:
@@ -91,12 +91,13 @@ class NLIModel:
             logger.info("Using DeBERTa label mapping: 0=SUPPORT, 1=NEUTRAL, 2=REFUTE")
         else:
             self.label_map = {0: "REFUTE", 1: "NEUTRAL", 2: "SUPPORT"}
-            logger.info("Using RoBERTa label mapping: 0=REFUTE, 1=NEUTRAL, 2=SUPPORT\")
+            logger.info("Using RoBERTa label mapping: 0=REFUTE, 1=NEUTRAL, 2=SUPPORT")
     
     def _load_onnx_model(self, model_name: str):
         """Load ONNX-optimized model (requires onnxruntime and optimum)"""
         try:
-            from optimum.onnxruntime import ORTModelForSequenceClassification
+            from optimum.onnxruntime import ORTModelForSequenceClassification, ORTQuantizer
+            from optimum.onnxruntime.configuration import AutoQuantizationConfig
             
             logger.info("Loading ONNX-optimized model...")
             
@@ -109,13 +110,70 @@ class NLIModel:
                 provider = "CPUExecutionProvider"
                 logger.info("  💻 Using ONNX with CPU optimization")
             
-            self.model = ORTModelForSequenceClassification.from_pretrained(
-                model_name,
-                export=True,  # Convert to ONNX if not already
-                provider=provider
-            )
-            self.model.eval()
-            logger.info("  ✓ ONNX model loaded (2-5x faster)")
+            # Check if ONNX quantization is requested (CPU only)
+            onnx_quantize = os.getenv("ONNX_QUANTIZE", "false").lower() == "true"
+            
+            # Define cache directories
+            cache_dir = os.path.expanduser("~/.cache/huggingface/hub")
+            model_cache_name = model_name.replace("/", "--")
+            onnx_cache_path = os.path.join(cache_dir, f"models--{model_cache_name}")
+            quantized_cache_path = "./onnx_quantized"
+            
+            if onnx_quantize and self.device.type == "cpu" and self.use_quantization:
+                # Check if quantized model already exists
+                if os.path.exists(quantized_cache_path) and os.path.exists(os.path.join(quantized_cache_path, "model_quantized.onnx")):
+                    logger.info("  📦 Loading cached ONNX INT8 quantized model...")
+                    self.model = ORTModelForSequenceClassification.from_pretrained(
+                        quantized_cache_path,
+                        provider=provider
+                    )
+                    logger.info("  ✓ ONNX INT8 quantized model loaded from cache (instant!)")
+                else:
+                    logger.info("  ⚡ Creating ONNX INT8 quantized model (first time only)...")
+                    # Load and quantize
+                    self.model = ORTModelForSequenceClassification.from_pretrained(
+                        model_name,
+                        export=True,
+                        provider=provider
+                    )
+                    
+                    # Apply dynamic quantization
+                    quantizer = ORTQuantizer.from_pretrained(self.model)
+                    qconfig = AutoQuantizationConfig.avx512_vnni(is_static=False, per_channel=True)
+                    quantizer.quantize(save_dir=quantized_cache_path, quantization_config=qconfig)
+                    
+                    # Reload quantized model
+                    self.model = ORTModelForSequenceClassification.from_pretrained(
+                        quantized_cache_path,
+                        provider=provider
+                    )
+                    logger.info("  ✓ ONNX INT8 quantized model created and saved (4x smaller, 3-5x faster)")
+            else:
+                # Check if ONNX model already exists in cache
+                # ONNX models are saved with "onnx" subfolder in the cache
+                onnx_exists = any([
+                    os.path.exists(os.path.join(onnx_cache_path, "onnx", "model.onnx")),
+                    os.path.exists(os.path.join(onnx_cache_path, "snapshots"))  # Check snapshots folder
+                ])
+                
+                if onnx_exists:
+                    logger.info("  📦 Loading cached ONNX model...")
+                    self.model = ORTModelForSequenceClassification.from_pretrained(
+                        model_name,
+                        export=False,  # Don't re-export, use cached version
+                        provider=provider
+                    )
+                    logger.info("  ✓ ONNX model loaded from cache (instant!)")
+                else:
+                    logger.info("  🔄 Converting to ONNX format (first time only, ~2min)...")
+                    self.model = ORTModelForSequenceClassification.from_pretrained(
+                        model_name,
+                        export=True,  # Convert to ONNX first time
+                        provider=provider
+                    )
+                    logger.info("  ✓ ONNX model created and cached (2-5x faster)")
+            
+            # ONNX models don't need .eval() - they're always in inference mode
         except ImportError as e:
             if self.device.type == "cuda":
                 logger.warning("onnxruntime-gpu not installed. Install with: pip install onnxruntime-gpu optimum[onnxruntime-gpu]")
@@ -124,11 +182,15 @@ class NLIModel:
             logger.info("Falling back to standard PyTorch model...")
             self.use_onnx = False
             self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+            self.model.to(self.device)
+            self.model.eval()
         except Exception as e:
             logger.error(f"ONNX loading failed: {e}")
             logger.info("Falling back to standard PyTorch model...")
             self.use_onnx = False
             self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+            self.model.to(self.device)
+            self.model.eval()
 
     def predict_batch(self, premises: list[str], hypothesis: str) -> list[dict]:
         """
@@ -168,6 +230,16 @@ class NLIModel:
         cpu_probs = probs.cpu().numpy()
 
         for i, prob_dist in enumerate(cpu_probs):
+            # Validate output dimensions
+            num_labels = len(prob_dist)
+            if num_labels != 3:
+                logger.error(f"Model returned {num_labels} labels instead of 3! ONNX export may be broken.")
+                logger.error(f"Probabilities: {prob_dist}")
+                raise ValueError(
+                    f"Model output has {num_labels} labels (expected 3). "
+                    f"ONNX conversion failed. Disable ONNX with: unset NLI_USE_ONNX"
+                )
+            
             # Get index of highest probability
             predicted_index = prob_dist.argmax()
             

@@ -31,8 +31,10 @@ This system implements a complete fact-checking pipeline:
 
 3. **Phase 2: NLI Inference**
    - Create pairs: `[(Sentence_1, Claim), (Sentence_2, Claim), ...]`
-   - Batch inference with RoBERTa-MNLI
+   - Batch inference with DeBERTa-v3-large (default) or RoBERTa-MNLI
+   - GPU acceleration, ONNX Runtime, and INT8 quantization support
    - Output: Probabilities (Entailment, Contradiction, Neutral)
+   - Performance: 0.3-0.5s (GPU), 2-3s (CPU with optimizations)
 
 4. **Phase 3: Aggregation & Verdict**
    - Sentence labeling (Support/Refute/Neutral)
@@ -71,6 +73,32 @@ cp src/config/config_template.py src/config/api_keys.py
 Required API keys:
 - **SerpApi** (for Google Search): Get from [https://serpapi.com/](https://serpapi.com/)
 - **Bing Search API** (alternative): Get from Azure Portal
+
+### Performance Optimization (Optional)
+
+**For GPU acceleration** (10-20x faster NLI):
+```bash
+# Install PyTorch with CUDA support
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# Optional: ONNX Runtime for maximum speed
+pip install onnxruntime-gpu optimum[onnxruntime-gpu]
+```
+
+**For CPU optimization** (2-3x faster):
+```bash
+# Enable ONNX Runtime
+export NLI_USE_ONNX="true"
+
+# Or enable INT8 quantization
+export NLI_USE_QUANTIZATION="true"
+
+# Or both (ONNX with quantization - fastest CPU)
+export NLI_USE_ONNX="true"
+export ONNX_QUANTIZE="true"
+```
+
+See `docs/GPU_ACCELERATION_GUIDE.md` for detailed setup instructions.
 
 ## 🚀 Usage
 

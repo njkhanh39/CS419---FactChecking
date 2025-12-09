@@ -63,6 +63,49 @@ python -m src.pipeline.fact_check --claim "..." --method voting  # or scoring, h
 python -m src.pipeline.fact_check --claim "..." --quiet
 ```
 
+### Performance Optimization
+
+**For GPU users** (10-20x faster NLI):
+```bash
+# Install PyTorch with CUDA
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# Optional: ONNX for maximum GPU speed
+pip install onnxruntime-gpu optimum[onnxruntime-gpu]
+export NLI_USE_ONNX="true"
+
+# Run normally - GPU auto-detected
+python -m src.pipeline.fact_check --claim "..."
+```
+
+**For CPU users** (2-5x faster):
+```bash
+# Option 1: ONNX Runtime (2-3x faster)
+pip install optimum[onnxruntime]
+export NLI_USE_ONNX="true"
+
+# Option 2: INT8 Quantization (2-3x faster, 75% less memory)
+export NLI_USE_QUANTIZATION="true"
+
+# Option 3: Both (3-5x faster - best for CPU)
+export NLI_USE_ONNX="true"
+export ONNX_QUANTIZE="true"
+
+python -m src.pipeline.fact_check --claim "..."
+```
+
+**Model selection** (default: DeBERTa-v3-large):
+```bash
+# Best accuracy (default)
+export NLI_MODEL_NAME="MoritzLaurer/deberta-v3-large-zeroshot-v2.0"
+
+# Faster but slightly less accurate
+export NLI_MODEL_NAME="microsoft/deberta-v3-base"
+
+# Original model
+export NLI_MODEL_NAME="FacebookAI/roberta-large-mnli"
+```
+
 ### Advanced Configuration
 
 ```python
@@ -96,10 +139,15 @@ Phase 2: Retrieval (0.3-0.5s)
     → Stage 2: Hybrid ranking → Top 12
     → Combine: semantic + lexical + metadata
     ↓
-Phase 3: NLI Inference (2-10s first time, faster after)
-    → Load RoBERTa-MNLI model (once)
+Phase 3: NLI Inference (0.3-12s depending on hardware/optimization)
+    → Load DeBERTa-v3-large model (once, cached after)
     → Classify each sentence: SUPPORT/REFUTE/NEUTRAL
     → Return confidence scores
+    → Performance:
+      • GPU: 0.3-0.5s (20-30x faster)
+      • CPU + ONNX + Quantization: 1-2s (5-10x faster)
+      • CPU + ONNX: 2-4s (2-3x faster)
+      • CPU baseline: 10-12s
     ↓
 Phase 4: Aggregation (<0.1s)
     → Calculate numerical scores

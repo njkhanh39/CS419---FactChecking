@@ -186,8 +186,8 @@ def make_final_decision(
     
     if verdict == 'SUPPORTED':
         # Show SUPPORT evidence first, sorted by confidence
-        support_evidence = [e for e in scored_evidence if e['nli_label'] == 'SUPPORT']
-        other_evidence = [e for e in scored_evidence if e['nli_label'] != 'SUPPORT']
+        support_evidence = [e for e in scored_evidence if e.get('nli_label', 'NEUTRAL') == 'SUPPORT']
+        other_evidence = [e for e in scored_evidence if e.get('nli_label', 'NEUTRAL') != 'SUPPORT']
         
         support_evidence.sort(key=lambda x: x.get('nli_confidence', 0) * x.get('combined_score', 0), reverse=True)
         other_evidence.sort(key=lambda x: x.get('nli_confidence', 0) * x.get('combined_score', 0), reverse=True)
@@ -196,8 +196,8 @@ def make_final_decision(
         
     elif verdict == 'REFUTED':
         # Show REFUTE evidence first, sorted by confidence
-        refute_evidence = [e for e in scored_evidence if e['nli_label'] == 'REFUTE']
-        other_evidence = [e for e in scored_evidence if e['nli_label'] != 'REFUTE']
+        refute_evidence = [e for e in scored_evidence if e.get('nli_label', 'NEUTRAL') == 'REFUTE']
+        other_evidence = [e for e in scored_evidence if e.get('nli_label', 'NEUTRAL') != 'REFUTE']
         
         refute_evidence.sort(key=lambda x: x.get('nli_confidence', 0) * x.get('combined_score', 0), reverse=True)
         other_evidence.sort(key=lambda x: x.get('nli_confidence', 0) * x.get('combined_score', 0), reverse=True)
@@ -216,8 +216,8 @@ def make_final_decision(
     for item in sorted_evidence[:5]:  # Top 5
         top_evidence.append({
             'text': item['text'],
-            'label': item['nli_label'],
-            'confidence': item['nli_confidence'],
+            'label': item.get('nli_label', 'NEUTRAL'),
+            'confidence': item.get('nli_confidence', 0.0),
             'retrieval_score': item.get('combined_score', 0),
             'source': item.get('doc_url', 'Unknown'),
             'doc_domain': item.get('doc_domain', 'Unknown'),
