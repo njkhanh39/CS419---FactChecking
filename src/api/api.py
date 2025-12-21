@@ -17,6 +17,7 @@ class ClaimRequest(BaseModel):
     claim: str
     num_urls: int = 10  # Default to 10 URLs
     top_k: int = 12     # Default to 12 sentences
+    method: str = "hybrid"  # Aggregation method: 'hybrid', 'voting', 'scoring'
 
 app = FastAPI(title="Fact-Checking Agent API")
 
@@ -69,6 +70,7 @@ async def check_claim_stream(request: ClaimRequest):
             claim = request.claim
             num_urls = request.num_urls
             top_k = request.top_k
+            method = getattr(request, 'method', 'hybrid')
             
             # Send initial status
             yield {
@@ -91,7 +93,7 @@ async def check_claim_stream(request: ClaimRequest):
                 'parameters': {
                     'num_urls': num_urls,
                     'top_k': top_k,
-                    'aggregation_method': 'hybrid'
+                    'aggregation_method': method
                 }
             }
             
@@ -297,7 +299,7 @@ async def check_claim_stream(request: ClaimRequest):
             phase4_start = time.time()
             verdict = await loop.run_in_executor(
                 executor,
-                functools.partial(make_final_decision, nli_results, method='hybrid')
+                functools.partial(make_final_decision, nli_results, method=method)
             )
             phase4_time = time.time() - phase4_start
             
@@ -359,7 +361,8 @@ async def check_claim_endpoint(request: ClaimRequest):
         result = checker.check_claim(
             claim=request.claim, 
             num_urls=request.num_urls,
-            top_k=request.top_k
+            top_k=request.top_k,
+            method=getattr(request, 'method', 'hybrid')
         )
         
         # Check if your pipeline caught an error internally

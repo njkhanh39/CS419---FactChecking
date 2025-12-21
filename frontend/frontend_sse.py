@@ -35,8 +35,15 @@ with st.sidebar:
         help="More sentences = Better coverage but slower"
     )
     
+    # Verdict method selection
+    verdict_method = st.selectbox(
+        "Verdict Aggregation Method",
+        options=["hybrid", "voting", "scoring"],
+        index=0,
+        help="Choose how the final verdict is determined: hybrid (default), voting, or scoring."
+    )
     st.info(f"""
-    **Estimated Runtime:**  
+    **Estimated Runtime (for CPU):**  
     🕐 ~{8 + num_urls * 0.5 + top_k * 0.3:.0f}s
     
     **Accuracy vs Speed:**  
@@ -74,7 +81,8 @@ if submitted and claim_input:
         payload = {
             "claim": claim_input,
             "num_urls": num_urls,
-            "top_k": top_k
+            "top_k": top_k,
+            "method": verdict_method
         }
         
         # Use streaming endpoint
@@ -270,7 +278,8 @@ if submitted and claim_input:
                 json={
                     "claim": claim_input,
                     "num_urls": num_urls,
-                    "top_k": top_k
+                    "top_k": top_k,
+                    "method": verdict_method
                 },
                 timeout=180
             )
